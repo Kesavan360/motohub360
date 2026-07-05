@@ -1,6 +1,30 @@
 @import "tailwindcss";
+@config "../../tailwind.config.ts";
+/* ============================================================
+   MotoHub360 — Global Styles
+   D-01: CSS Custom Properties (Design Tokens)
+   ============================================================ */
 
-/*
-  Design tokens (CSS custom properties) will be added later.
-  Font settings will also be added in a later phase.
-*/
+:root {
+  --color-surface-base: #FAFAF9;
+  --color-surface-raised: #FFFFFF;
+  --color-surface-sunken: #F2F1EF;
+  --color-surface-inverse: #0E0F12;
+
+  --color-ink-primary: #15161A;
+  --color-ink-secondary: #5B5D66;
+  --color-ink-tertiary: #9A9CA5;
+  --color-text-inverse: #F5F5F4;
+
+  --color-border-hairline: #E4E3E0;
+  --color-accent: #15161A;
+
+  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--color-accent) 30%, transparent);
+
+  --font-display: system-ui;
+  --font-body: system-ui;
+  --font-mono: ui-monospace, "Courier New", monospace;
+
+  --ease-premium: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-fast: cubic-bezier(0.2, 0, 0, 1);
+}
