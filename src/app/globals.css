@@ -219,4 +219,87 @@
    
      /* Fast easing — search suggestions, compact interactions */
      --ease-fast: cubic-bezier(0.2, 0, 0, 1);
+   } 
+   /* ============================================================
+   D-03 — BASE TYPOGRAPHY
+   Sets default font, color, and background on root elements.
+   Heading tags use the Display typeface.
+   Code/pre use the Mono typeface.
+   Body copy max-width prevents overly long line lengths.
+   All values consume CSS variables from D-01 and D-02.
+   ============================================================ */
+
+html {
+   font-family: var(--font-body);
+   color: var(--color-ink-primary);
+   background-color: var(--color-surface-base);
+   -webkit-font-smoothing: antialiased;
+   -moz-osx-font-smoothing: grayscale;
+   text-rendering: optimizeLegibility;
+ }
+ 
+ h1,
+ h2,
+ h3,
+ h4 {
+   font-family: var(--font-display);
+   font-weight: 600;
+   letter-spacing: -0.01em;
+ }
+ 
+ h5,
+ h6 {
+   font-family: var(--font-body);
+   font-weight: 600;
+ }
+ 
+ p {
+   max-width: 65ch;
+   line-height: 1.6;
+ }
+ 
+ code,
+ pre,
+ kbd,
+ samp {
+   font-family: var(--font-mono);
+ }
+ 
+ /*
+  * Global focus-visible ring — keyboard accessibility (WCAG 2.1 AA).
+  * Applies the accent-adaptive shadow-focus token to all
+  * focusable elements. Components that need custom focus styles
+  * (Button, ColorSwatch) override this with shadow-focus utility.
+  */
+ *:focus-visible {
+   outline: none;
+   box-shadow: var(--shadow-focus);
+ }
+ 
+ /*
+  * Smooth scrolling — respects reduced-motion preference.
+  * Per MPD Section 6 Animations: all transitions degrade to
+  * instant/no-motion when prefers-reduced-motion is set.
+  */
+ @media (prefers-reduced-motion: no-preference) {
+   html {
+     scroll-behavior: smooth;
    }
+ }
+ 
+ /*
+  * Reduced motion — disable all transitions and animations
+  * globally when the user has requested reduced motion.
+  * Individual animation components (AccentPulse, Skeleton)
+  * also check this at the component level in D-04/D-05/D-06.
+  */
+ @media (prefers-reduced-motion: reduce) {
+   *,
+   *::before,
+   *::after {
+     animation-duration: 0.01ms !important;
+     animation-iteration-count: 1 !important;
+     transition-duration: 0.01ms !important;
+     scroll-behavior: auto !important;
+   }
+ }
