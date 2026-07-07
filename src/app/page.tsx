@@ -5,5 +5,5 @@ export default function HomePage() {
         MotoHub360
       </h1>
     </main>
-  );
+  )
 }

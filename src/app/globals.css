@@ -303,3 +303,224 @@ html {
      scroll-behavior: auto !important;
    }
  }
+ /* ============================================================
+   D-04 — ANIMATION KEYFRAMES AND TRANSITION UTILITIES
+
+   Defines all motion primitives for the MotoHub360 design system.
+   MPD Section 6, Animations: motion is mechanical and precise —
+   well-damped, never bouncy.
+
+   Three @keyframes:
+     accent-pulse   → Accent Pulse signature motif (D-05/AccentPulse)
+     shimmer        → Skeleton loading sweep (D-06/Skeleton)
+     fade-slide-up  → Scroll reveal entrance (H-08/useScrollReveal)
+
+   Two transition utility classes:
+     .transition-premium    → standard interactions (280ms)
+     .transition-card-hover → card image zoom + shadow (400ms)
+
+   All animations respect prefers-reduced-motion (set globally in D-03).
+   ============================================================ */
+
+/* ----------------------------------------------------------
+   KEYFRAMES
+   ---------------------------------------------------------- */
+
+/*
+ * accent-pulse — Accent Pulse signature motif.
+ *
+ * Applied to: selected ColorSwatch ring (B-03), active nav
+ * states, AccentPulse wrapper component (D-05).
+ *
+ * Opacity breathes 0.6 → 1.0 → 0.6 over 2.4s.
+ * Subtle — perceived as an idling engine light, not a blink.
+ * Uses --color-accent so it adapts to the current brand color.
+ *
+ * Duration: 2.4s loop, per MPD Section 6 Animations table.
+ */
+@keyframes accent-pulse {
+  0% {
+    opacity: 0.6;
+    box-shadow: 0 0 0 2px var(--color-accent);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 0 3px var(--color-accent);
+  }
+  100% {
+    opacity: 0.6;
+    box-shadow: 0 0 0 2px var(--color-accent);
+  }
+}
+
+/*
+ * shimmer — Skeleton loading placeholder sweep.
+ *
+ * Applied to: Skeleton component (D-06).
+ * Low-contrast left-to-right gradient sweep.
+ * Never a spinner on content areas — per MPD design rules.
+ *
+ * Duration: 1.2s loop, per MPD Section 6 Animations table.
+ */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/*
+ * fade-slide-up — Scroll reveal entrance animation.
+ *
+ * Applied to: Home page sections (H-08), triggered by
+ * useScrollReveal hook (H-09) adding .is-visible class.
+ * Elements start 16px below their final position and fade in.
+ *
+ * Duration: 400ms, triggered once per element per MPD spec.
+ * Initial state (.will-animate) must be set on the element
+ * before the hook fires to prevent a flash of visible content.
+ */
+@keyframes fade-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*
+ * route-enter — Premium route transition.
+ *
+ * Applied to page content on navigation (P-08).
+ * Cross-fade + 8px upward slide of incoming content.
+ * Duration: 320ms, per MPD Section 6 Animations table.
+ */
+@keyframes route-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*
+ * hairline-draw — Premium route loader animation (P-08).
+ *
+ * A thin accent-colored line draws left-to-right across
+ * the top of the viewport on navigation, then fades.
+ * Total duration: 600–800ms per MPD Section 6 Animations table.
+ */
+@keyframes hairline-draw {
+  0% {
+    transform: scaleX(0);
+    opacity: 1;
+  }
+  85% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+
+/* ----------------------------------------------------------
+   SCROLL REVEAL UTILITY CLASSES
+   Used by useScrollReveal hook (H-09) and Home page (H-08).
+
+   Pattern:
+     1. Add .will-animate to elements on mount (sets initial
+        hidden state — opacity 0, translateY 16px)
+     2. Hook adds .is-visible when element enters viewport
+     3. .is-visible triggers fade-slide-up animation
+
+   Stagger delay is applied via inline style on grouped
+   elements (e.g. brand logo chips in H-08):
+     style={{ animationDelay: `${index * 60}ms` }}
+   ---------------------------------------------------------- */
+
+.will-animate {
+  opacity: 0;
+  transform: translateY(16px);
+}
+
+.will-animate.is-visible {
+  animation: fade-slide-up 400ms var(--ease-premium) forwards;
+}
+
+/* ----------------------------------------------------------
+   TRANSITION UTILITY CLASSES
+   Reusable transition presets consumed by components.
+   Applied as className alongside Tailwind utilities.
+   ---------------------------------------------------------- */
+
+/*
+ * .transition-premium — standard cross-fade and property transitions.
+ *
+ * Used on: color swatches, image cross-fades, nav link hovers,
+ * button hover states, search bar shadow transitions.
+ *
+ * Duration: 280ms, easing: --ease-premium (cubic-bezier 0.4,0,0.2,1)
+ * Per MPD: "color swatch select — 280ms ease for image"
+ */
+.transition-premium {
+  transition-property: opacity, color, background-color,
+    border-color, box-shadow, transform;
+  transition-duration: 280ms;
+  transition-timing-function: var(--ease-premium);
+}
+
+/*
+ * .transition-card-hover — BikeCard image zoom and shadow lift.
+ *
+ * Used on: BikeCard component (LP-01) image container and card wrapper.
+ * Image scales to 1.03, shadow lifts from shadow-sm to shadow-md.
+ *
+ * Duration: 400ms — deliberately slower than transition-premium
+ * to feel weighty and physical, not snappy.
+ * Per MPD: "card hover — image scale 1.03, shadow lift — 400ms ease"
+ */
+.transition-card-hover {
+  transition-property: transform, box-shadow;
+  transition-duration: 400ms;
+  transition-timing-function: var(--ease-premium);
+}
+
+/*
+ * .transition-accordion — spec accordion expand/collapse.
+ *
+ * Used on: BikeSpecAccordion (B-08) content panel height
+ * and chevron icon rotation.
+ *
+ * Duration: 240ms — shorter than card hover for UI responsiveness.
+ * Per MPD: "accordion — height auto-expand, chevron rotate — 240ms ease"
+ */
+.transition-accordion {
+  transition-property: height, opacity, transform;
+  transition-duration: 240ms;
+  transition-timing-function: var(--ease-premium);
+}
+
+/*
+ * .transition-search — search panel and suggestion interactions.
+ *
+ * Used on: SearchSuggestions panel (SR-02), SearchBarCompact
+ * expand/collapse (SR-04).
+ *
+ * Duration: 200ms — fastest transition in the system.
+ * Per MPD: "search animations capped at 150–200ms — speed over elegance"
+ */
+.transition-search {
+  transition-property: opacity, transform, box-shadow;
+  transition-duration: 200ms;
+  transition-timing-function: var(--ease-fast);
+}
