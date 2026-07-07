@@ -1,30 +1,222 @@
-@import "tailwindcss";
-@config "../../tailwind.config.ts";
 /* ============================================================
    MotoHub360 — Global Styles
+
    D-01: CSS Custom Properties (Design Tokens)
+   D-02: Self-hosted @font-face declarations
+
+   ARCHITECTURE:
+   S-09  → tailwind.config.ts  — token NAMES as Tailwind utilities
+   D-01  → :root variables     — token VALUES at runtime
+   D-02  → @font-face          — woff2 font files from /public/fonts/
+   D-03  → base element styles — applied after fonts are declared
+   D-04  → keyframes           — animation definitions
    ============================================================ */
 
-:root {
-  --color-surface-base: #FAFAF9;
-  --color-surface-raised: #FFFFFF;
-  --color-surface-sunken: #F2F1EF;
-  --color-surface-inverse: #0E0F12;
-
-  --color-ink-primary: #15161A;
-  --color-ink-secondary: #5B5D66;
-  --color-ink-tertiary: #9A9CA5;
-  --color-text-inverse: #F5F5F4;
-
-  --color-border-hairline: #E4E3E0;
-  --color-accent: #15161A;
-
-  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--color-accent) 30%, transparent);
-
-  --font-display: system-ui;
-  --font-body: system-ui;
-  --font-mono: ui-monospace, "Courier New", monospace;
-
-  --ease-premium: cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-fast: cubic-bezier(0.2, 0, 0, 1);
-}
+   @import "tailwindcss";
+   @config "../../tailwind.config.ts";
+   
+   /* ============================================================
+      D-02 — FONT DECLARATIONS
+      Must appear before :root so font-family names resolve
+      correctly when --font-* variables are consumed.
+   
+      font-display: swap — text renders immediately in the
+      fallback system font, swaps to the custom font when loaded.
+      Prevents invisible text (FOIT) on slow connections.
+   
+      Only 3 weights loaded per MPD Section 6 Typography rules:
+        400 Regular, 500 Medium, 600 SemiBold
+      Loading unused weights wastes bandwidth with no visual gain.
+      ============================================================ */
+   
+   /* ----------------------------------------------------------
+      DISPLAY — Plus Jakarta Sans
+      Role: Bike names, hero headlines, page titles.
+      Design System direction: geometric grotesk, engineered precision.
+      ---------------------------------------------------------- */
+   
+   @font-face {
+     font-family: 'Plus Jakarta Sans';
+     src: url('/fonts/plus-jakarta-sans-400.woff2') format('woff2');
+     font-weight: 400;
+     font-style: normal;
+     font-display: swap;
+   }
+   
+   @font-face {
+     font-family: 'Plus Jakarta Sans';
+     src: url('/fonts/plus-jakarta-sans-500.woff2') format('woff2');
+     font-weight: 500;
+     font-style: normal;
+     font-display: swap;
+   }
+   
+   @font-face {
+     font-family: 'Plus Jakarta Sans';
+     src: url('/fonts/plus-jakarta-sans-600.woff2') format('woff2');
+     font-weight: 600;
+     font-style: normal;
+     font-display: swap;
+   }
+   
+   /* ----------------------------------------------------------
+      BODY — Inter
+      Role: Descriptions, feature copy, UI labels, all prose.
+      Design System direction: humanist sans, high readability.
+      ---------------------------------------------------------- */
+   
+   @font-face {
+     font-family: 'Inter';
+     src: url('/fonts/inter-400.woff2') format('woff2');
+     font-weight: 400;
+     font-style: normal;
+     font-display: swap;
+   }
+   
+   @font-face {
+     font-family: 'Inter';
+     src: url('/fonts/inter-500.woff2') format('woff2');
+     font-weight: 500;
+     font-style: normal;
+     font-display: swap;
+   }
+   
+   @font-face {
+     font-family: 'Inter';
+     src: url('/fonts/inter-600.woff2') format('woff2');
+     font-weight: 600;
+     font-style: normal;
+     font-display: swap;
+   }
+   
+   /* ----------------------------------------------------------
+      MONO — JetBrains Mono
+      Role: Spec values, prices, technical figures.
+      Design System direction: monospace, engineered precision feel.
+      Used sparingly — combined with font-mono Tailwind utility.
+      ---------------------------------------------------------- */
+   
+   @font-face {
+     font-family: 'JetBrains Mono';
+     src: url('/fonts/jetbrains-mono-400.woff2') format('woff2');
+     font-weight: 400;
+     font-style: normal;
+     font-display: swap;
+   }
+   
+   @font-face {
+     font-family: 'JetBrains Mono';
+     src: url('/fonts/jetbrains-mono-500.woff2') format('woff2');
+     font-weight: 500;
+     font-style: normal;
+     font-display: swap;
+   }
+   
+   @font-face {
+     font-family: 'JetBrains Mono';
+     src: url('/fonts/jetbrains-mono-600.woff2') format('woff2');
+     font-weight: 600;
+     font-style: normal;
+     font-display: swap;
+   }
+   
+   /* ============================================================
+      D-01 — ROOT DESIGN TOKENS
+      All tokens defined on :root so they are globally available.
+      The --color-accent token is overridden per bike page at
+      runtime by the useAccentColor hook (B-02).
+      ============================================================ */
+   
+   :root {
+   
+     /* ----------------------------------------------------------
+        SURFACE COLORS — MPD Section 6, Color Palette (Base)
+        ---------------------------------------------------------- */
+   
+     /* Primary page background — warm-neutral white, not stark */
+     --color-surface-base: #FAFAF9;
+   
+     /* Cards, panels, modals — pure white for elevation contrast */
+     --color-surface-raised: #FFFFFF;
+   
+     /* Section breaks, input backgrounds, feature tiles */
+     --color-surface-sunken: #F2F1EF;
+   
+     /* Footer, admin sidebar, hero overlays — near-black */
+     --color-surface-inverse: #0E0F12;
+   
+     /* ----------------------------------------------------------
+        INK (TEXT) COLORS — MPD Section 6, Color Palette (Base)
+        ---------------------------------------------------------- */
+   
+     /* Primary text — near-black, not pure black */
+     --color-ink-primary: #15161A;
+   
+     /* Secondary text — captions, meta info, labels */
+     --color-ink-secondary: #5B5D66;
+   
+     /* Tertiary text — placeholders, disabled states */
+     --color-ink-tertiary: #9A9CA5;
+   
+     /* Text on dark (surface-inverse) backgrounds */
+     --color-text-inverse: #F5F5F4;
+   
+     /* ----------------------------------------------------------
+        BORDER
+        ---------------------------------------------------------- */
+   
+     /* Dividers, card outlines, table rules */
+     --color-border-hairline: #E4E3E0;
+   
+     /* ----------------------------------------------------------
+        ACCENT — Dynamic per-bike brand color.
+        Default: ink-primary (#15161A) — neutral fallback before
+        useAccentColor hook (B-02) sets the brand-specific value.
+   
+        Per-brand values (set at runtime on bike detail pages):
+          Royal Enfield: #7A2E2E    KTM:    #FF6A00
+          Yamaha:        #1B3A8A    Honda:  #C8102E
+          TVS:           #0E7C7B    Bajaj:  #1F2937
+        ---------------------------------------------------------- */
+   
+     --color-accent: #15161A;
+   
+     /* ----------------------------------------------------------
+        SHADOWS
+        shadow-focus references --color-accent so it adapts to
+        the current bike's brand color automatically.
+        Provides an accessible keyboard focus ring (WCAG 2.1 AA).
+        ---------------------------------------------------------- */
+   
+     --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--color-accent) 30%, transparent);
+   
+     /* ----------------------------------------------------------
+        FONT FAMILIES — D-02
+        Updated from system-font placeholders to the self-hosted
+        woff2 font families declared above.
+   
+        Fallback stacks ensure correct rendering before fonts load
+        and on any system where woff2 files fail to fetch.
+        ---------------------------------------------------------- */
+   
+     /* Display — Plus Jakarta Sans (geometric grotesk) */
+     --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
+   
+     /* Body — Inter (humanist sans) */
+     --font-body: 'Inter', system-ui, sans-serif;
+   
+     /* Mono — JetBrains Mono (technical figures, spec values) */
+     --font-mono: 'JetBrains Mono', ui-monospace, 'Courier New', monospace;
+   
+     /* ----------------------------------------------------------
+        TRANSITION DEFAULTS
+        Premium easing curves used for page transitions and
+        card hover animations per MPD Section 6, Animations.
+        ---------------------------------------------------------- */
+   
+     /* Standard premium easing — page transitions, color swaps */
+     --ease-premium: cubic-bezier(0.4, 0, 0.2, 1);
+   
+     /* Fast easing — search suggestions, compact interactions */
+     --ease-fast: cubic-bezier(0.2, 0, 0, 1);
+   }
