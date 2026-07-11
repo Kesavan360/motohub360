@@ -1,0 +1,346 @@
+/*
+ * admin.css — Admin panel specific styles.
+ *
+ * Imported ONLY in src/app/admin/layout.tsx.
+ * Never imported in the root layout (src/app/layout.tsx).
+ * Public pages never load these styles.
+ *
+ * MPD Task L-10:
+ *   "Imports admin.css (separate from public styles)."
+ *
+ * MPD Section 6, Design System — Admin:
+ *   "Typography in the admin shifts mostly to body-md/body-sm with
+ *   the data/mono type reserved for IDs or price fields."
+ *   "Its calm, dense, utilitarian feel is itself the correct design
+ *   choice for a tool the founder will use hundreds of times."
+ *
+ * CONTENTS:
+ *   1. Admin typography resets
+ *   2. Dense table styles (used by BikeTable in A-06)
+ *   3. Admin form field resets (used by BikeForm components in A-08–A-12)
+ *   4. Admin utility classes
+ *   5. Status pill styles (Published / Draft in BikeTable)
+ *
+ * These styles use CSS custom properties from D-01 (globals.css)
+ * which is imported in the root layout and available globally.
+ */
+
+/* ----------------------------------------------------------
+   1. ADMIN TYPOGRAPHY RESETS
+   Dense, utilitarian text sizing for the workshop environment.
+   ---------------------------------------------------------- */
+
+/*
+ * Admin content area: body-md as the default text size.
+ * Public pages use D-03 base styles. Admin overrides to
+ * a slightly smaller, denser scale appropriate for data-heavy UIs.
+ */
+ #admin-main-content {
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--color-ink-primary);
+    line-height: 1.5;
+  }
+  
+  /*
+   * Admin headings — smaller than public display scale.
+   * No display-xl or display-lg in the admin — workspace feel.
+   */
+  #admin-main-content h1 {
+    font-family: var(--font-body);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--color-ink-primary);
+  }
+  
+  #admin-main-content h2 {
+    font-family: var(--font-body);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-ink-primary);
+  }
+  
+  #admin-main-content h3 {
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-ink-tertiary);
+  }
+  
+  /* ----------------------------------------------------------
+     2. ADMIN TABLE STYLES
+     Dense, functional — used by BikeTable (A-06).
+     ---------------------------------------------------------- */
+  
+  .admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-body);
+    font-size: 14px;
+  }
+  
+  .admin-table th {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-ink-tertiary);
+    text-align: left;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--color-border-hairline);
+    white-space: nowrap;
+    background-color: var(--color-surface-base);
+  }
+  
+  .admin-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--color-border-hairline);
+    color: var(--color-ink-primary);
+    vertical-align: middle;
+  }
+  
+  .admin-table tr:last-child td {
+    border-bottom: none;
+  }
+  
+  .admin-table tr:hover td {
+    background-color: var(--color-surface-sunken);
+  }
+  
+  /*
+   * Admin table thumbnail — 40px square, r-sm border radius.
+   * Per MPD Section 5.5: "thumbnail (40px, r-sm)"
+   */
+  .admin-table-thumb {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    object-fit: cover;
+    background-color: var(--color-surface-sunken);
+    flex-shrink: 0;
+    display: block;
+  }
+  
+  /* ----------------------------------------------------------
+     3. ADMIN FORM FIELD RESETS
+     Used by BikeFormBasic, BikeFormSpecs etc. (A-08–A-12).
+     ---------------------------------------------------------- */
+  
+  .admin-input {
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--color-ink-primary);
+    background-color: var(--color-surface-raised);
+    border: 1px solid var(--color-border-hairline);
+    border-radius: 6px;
+    outline: none;
+    transition: border-color 200ms cubic-bezier(0.4,0,0.2,1),
+                box-shadow 200ms cubic-bezier(0.4,0,0.2,1);
+    box-sizing: border-box;
+  }
+  
+  .admin-input:focus {
+    border-color: var(--color-ink-secondary);
+    box-shadow: var(--shadow-focus);
+  }
+  
+  .admin-input:disabled {
+    background-color: var(--color-surface-sunken);
+    color: var(--color-ink-tertiary);
+    cursor: not-allowed;
+  }
+  
+  .admin-input::placeholder {
+    color: var(--color-ink-tertiary);
+  }
+  
+  .admin-textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 10px 12px;
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--color-ink-primary);
+    background-color: var(--color-surface-raised);
+    border: 1px solid var(--color-border-hairline);
+    border-radius: 6px;
+    outline: none;
+    resize: vertical;
+    transition: border-color 200ms cubic-bezier(0.4,0,0.2,1),
+                box-shadow 200ms cubic-bezier(0.4,0,0.2,1);
+    box-sizing: border-box;
+    line-height: 1.5;
+  }
+  
+  .admin-textarea:focus {
+    border-color: var(--color-ink-secondary);
+    box-shadow: var(--shadow-focus);
+  }
+  
+  .admin-textarea::placeholder {
+    color: var(--color-ink-tertiary);
+  }
+  
+  .admin-select {
+    width: 100%;
+    height: 40px;
+    padding: 0 32px 0 12px;
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--color-ink-primary);
+    background-color: var(--color-surface-raised);
+    border: 1px solid var(--color-border-hairline);
+    border-radius: 6px;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    /*
+     * Custom chevron-down arrow via background SVG.
+     * Uses ink-tertiary color (#9A9CA5) encoded as URL.
+     */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239A9CA5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 16px;
+    transition: border-color 200ms cubic-bezier(0.4,0,0.2,1),
+                box-shadow 200ms cubic-bezier(0.4,0,0.2,1);
+    box-sizing: border-box;
+  }
+  
+  .admin-select:focus {
+    border-color: var(--color-ink-secondary);
+    box-shadow: var(--shadow-focus);
+  }
+  
+  .admin-label {
+    display: block;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-ink-secondary);
+    margin-bottom: 6px;
+  }
+  
+  .admin-field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+  
+  .admin-field-hint {
+    font-family: var(--font-body);
+    font-size: 12px;
+    color: var(--color-ink-tertiary);
+    line-height: 1.4;
+  }
+  
+  /* ----------------------------------------------------------
+     4. ADMIN UTILITY CLASSES
+     ---------------------------------------------------------- */
+  
+  /*
+   * Admin card — white surface with hairline border.
+   * Used as section container in admin pages.
+   */
+  .admin-card {
+    background-color: var(--color-surface-raised);
+    border: 1px solid var(--color-border-hairline);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  
+  /*
+   * Admin card header — section title bar within a card.
+   */
+  .admin-card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-border-hairline);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  
+  /*
+   * Admin card body — content area within a card.
+   */
+  .admin-card-body {
+    padding: 20px;
+  }
+  
+  /*
+   * Admin page header — top section of every admin page.
+   * Contains the page title and primary action button.
+   */
+  .admin-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--color-border-hairline);
+    background-color: var(--color-surface-raised);
+  }
+  
+  /*
+   * Admin page content — the scrollable content area below the page header.
+   */
+  .admin-page-content {
+    padding: 32px;
+  }
+  
+  @media (max-width: 768px) {
+    .admin-page-header {
+      padding: 16px 20px;
+    }
+    .admin-page-content {
+      padding: 20px;
+    }
+  }
+  
+  /* ----------------------------------------------------------
+     5. STATUS PILL STYLES
+     Published / Draft badges used in BikeTable (A-06).
+     Per MPD Section 5.5:
+     "Published in a muted green, Draft in ink-tertiary grey"
+     ---------------------------------------------------------- */
+  
+  .admin-status-pill {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 999px;
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  
+  /*
+   * Published — muted green background, dark green text.
+   * Not a bright green — muted to match the neutral premium palette.
+   */
+  .admin-status-pill--published {
+    background-color: #DCFCE7;
+    color: #166534;
+  }
+  
+  /*
+   * Draft — surface-sunken background, ink-tertiary text.
+   * Clearly secondary — draft content is not live.
+   */
+  .admin-status-pill--draft {
+    background-color: var(--color-surface-sunken);
+    color: var(--color-ink-tertiary);
+  }
