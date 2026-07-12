@@ -1,59 +1,43 @@
+'use client'
+
 /*
  * Home page — MotoHub360 primary landing page ( / )
  *
- * MPD Task H-06:
- *   "Assemble: SearchBar (hero) → BikeHero (featured, with mock data)
- *   → Brand logo grid (mock 6 brands) → Category pills → Price pills.
- *   Use space-7/space-8 between sections per Design System spacing."
+ * MPD Task H-06: Assembled Home page with all sections.
+ * MPD Task H-08: Add scroll-reveal animations to brand, category,
+ *   and price sections. Stagger delay 60ms between brand logo chips.
  *
- * MPD Section 5.1, Home Page layout order (top to bottom):
- *   1. Header (via root layout — SiteHeader)
- *   2. MotoHub wordmark — display-lg, centered
- *   3. SearchBar — dominant, full-width, hero-sized (MOST IMPORTANT)
- *   4. SearchSuggestions panel (wired in SR-03 — placeholder here)
- *   5. Hero motorcycle — full-bleed, rotating (BikeHero)
- *   6. Browse by Brand — BrandLogoChip grid
- *   7. Browse by Category — CategoryPills
- *   8. Browse by Price — PriceRangePills
- *   9. Footer (via root layout)
+ * CHANGES FROM H-06:
+ *   - Added 'use client' — required because useScrollReveal uses
+ *     useEffect + useRef (client hooks).
+ *   - Brand section, Category section, Price section now use
+ *     useScrollReveal to trigger fade-slide-up on viewport entry.
+ *   - Brand logo chips have staggered animation delay (index × 60ms).
+ *   - will-animate / is-visible CSS classes from D-04 are applied.
  *
- * MPD High-Fidelity UI, Home Page:
- *   "The page opens almost entirely on the search experience —
- *   MotoHub is not asking to be browsed, it's offering to be asked."
- *   "The MotoHub wordmark sits quietly above it in display-lg,
- *   no tagline clutter beneath — the search bar is the tagline."
+ * MPD Section 6, Animations:
+ *   "Scroll reveal — Sections fade + 16px slide-up as they enter
+ *   viewport, staggered slightly for grouped elements (e.g. feature
+ *   icons). 400ms, triggered once per element."
+ *   "Stagger delay 60ms between brand logo chips."
  *
- * SERVER COMPONENT:
- *   This page is a Server Component — no 'use client' directive.
- *   SearchBar is 'use client' (SR-01 wiring needs client state) but
- *   is imported here — Next.js handles the client boundary at the
- *   SearchBar component level, not the page level.
- *   BikeHero is 'use client' (rotation interval) — same pattern.
+ * MPD Task H-08:
+ *   "Add fade-slide-up animation to Brand logo section, Category
+ *   pills, and Price pills sections — triggered as they scroll into
+ *   viewport using IntersectionObserver in a useScrollReveal hook.
+ *   Stagger delay 60ms between brand logo chips."
  *
- * MOCK DATA:
- *   BikeHero uses MOCK_FEATURED_BIKES from mockData.ts (H-07).
- *   BrandLogoChip uses BRANDS from constants/brands.ts (S-08).
- *   Both are replaced with real MongoDB data in DB-08.
+ * ANIMATION CLASSES (defined in D-04 globals.css):
+ *   .will-animate     → opacity: 0, transform: translateY(16px)
+ *   .will-animate.is-visible → animation: fade-slide-up 400ms ease forwards
  *
- * SEARCH WIRING:
- *   SearchBar's onChange/onSubmit/onFocus/onBlur props are wired
- *   to useSearch (SR-01) and SearchSuggestions (SR-02) in SR-03.
- *   For H-06, SearchBar renders in stub mode (no props) — the
- *   search icon and focus states work; typing logs to console.
- *
- * SPACING:
- *   MPD Section 6 Spacing System:
- *     space-7: 80px — major section breaks (desktop)
- *     space-8: 120px — hero-to-content breathing room (desktop)
- *   Mobile: space-7 → 48px, space-8 → 64px via CSS media query.
- *
- * RENDERING:
- *   SSG (Static Site Generation) — this page is pre-built at deploy
- *   time and served from Vercel's CDN. No database queries at runtime
- *   for the home page — all content is either static (brand chips,
- *   category/price pills) or mock (hero bikes until DB-08).
+ * STAGGER PATTERN for brand chips:
+ *   Each BrandLogoChip wrapper has animationDelay set inline:
+ *   style={{ animationDelay: `${index * 60}ms` }}
+ *   This creates a left-to-right wave reveal effect.
  */
 
+import { useScrollReveal } from '@/hooks/useScrollReveal'
 import SearchBar from '@/components/search/SearchBar'
 import BikeHero from '@/components/bike/BikeHero'
 import BrandLogoChip from '@/components/listing/BrandLogoChip'
@@ -67,14 +51,29 @@ import { MOCK_FEATURED_BIKES } from '@/lib/mockData'
 // ---------------------------------------------------------------------------
 
 export default function HomePage() {
+  /*
+   * Three separate scroll-reveal observers — one per animated section.
+   * Each section animates independently as it enters the viewport.
+   * Using separate hooks (not one shared hook) so each section has
+   * its own intersection state and fires independently.
+   */
+  const brandSection = useScrollReveal({ threshold: 0.05, rootMargin: '0px 0px -30px 0px' })
+  const categorySection = useScrollReveal({ threshold: 0.1, rootMargin: '0px 0px -40px 0px' })
+  const priceSection = useScrollReveal({ threshold: 0.1, rootMargin: '0px 0px -40px 0px' })
+
   return (
     <>
       {/*
-       * Scoped spacing styles.
-       * CSS custom properties from D-01 are used directly.
-       * Media queries apply the mobile compression defined in MPD Section 6:
-       *   space-7: 80px desktop → 48px mobile
-       *   space-8: 120px desktop → 64px mobile
+       * Scoped spacing + scroll-reveal override styles.
+       *
+       * The .will-animate and .is-visible classes are defined globally
+       * in D-04 globals.css. The overrides here set the animation-delay
+       * via the inline style prop on individual brand chip wrappers
+       * (not via CSS here — inline style is the correct approach for
+       * dynamic delay values based on index).
+       *
+       * .home-section-gap / .home-hero-gap: spacing between sections.
+       * Mobile compression per MPD Section 6 Spacing System.
        */}
       <style>{`
         .home-section-gap {
@@ -86,6 +85,7 @@ export default function HomePage() {
         .home-search-wrapper {
           max-width: 680px;
         }
+
         @media (max-width: 768px) {
           .home-section-gap {
             margin-top: 48px;
@@ -97,35 +97,69 @@ export default function HomePage() {
             max-width: 100%;
           }
         }
+
+        /*
+         * Brand chips track — mobile horizontal scroll.
+         * Same pattern as CategoryPills / PriceRangePills.
+         */
+        .brand-chips-track::-webkit-scrollbar {
+          display: none;
+        }
+        .brand-chips-track {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+
+        @media (max-width: 768px) {
+          .brand-chips-track {
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+            padding-bottom: 4px;
+          }
+        }
+
+        /*
+         * Mobile padding reduction for content sections.
+         */
+        @media (max-width: 768px) {
+          .home-content-pad {
+            padding-left: 20px !important;
+            padding-right: 20px !important;
+          }
+          .home-search-pad {
+            padding-left: 20px !important;
+            padding-right: 20px !important;
+          }
+        }
+
+        /*
+         * Section label — consistent uppercase style across browse sections.
+         */
+        .home-section-label {
+          font-family: var(--font-body);
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--color-ink-tertiary);
+          margin: 0 0 24px;
+        }
       `}</style>
 
-      {/*
-       * Page wrapper — surface-base background, full viewport height.
-       * The root layout (built in L-06 as part of next tasks) will
-       * render SiteHeader above this and Footer below.
-       * For now this page is self-contained with correct spacing.
-       */}
       <main
         id="home-main"
         role="main"
         style={{
           backgroundColor: 'var(--color-surface-base)',
           minHeight: '100vh',
+          overflowX: 'hidden',
         }}
       >
 
         {/* ── ABOVE-FOLD: Wordmark + Search ─────────────────────── */}
-        {/*
-         * Above-fold section: centered wordmark + dominant search bar.
-         * This is the first thing the user sees.
-         * Padding-top: generous breathing room from the header.
-         * Padding-bottom: matches the spacing before the hero below.
-         *
-         * MPD HiFi: "Centered, roughly 30% down the viewport on
-         * desktop (higher on mobile, near the top under the header)"
-         */}
         <section
           aria-label="Search motorcycles"
+          className="home-search-pad"
           style={{
             display: 'flex',
             flexDirection: 'column',
@@ -135,9 +169,8 @@ export default function HomePage() {
         >
           {/*
            * MotoHub360 wordmark — display-lg (48px desktop / 32px mobile).
-           * Sits quietly above the search bar.
-           * MPD HiFi: "The MotoHub wordmark sits quietly above it in
-           * display-lg, no tagline clutter beneath."
+           * No scroll-reveal on the wordmark — it is above the fold and
+           * visible immediately. Animating it would feel clunky.
            */}
           <h1
             style={{
@@ -157,19 +190,8 @@ export default function HomePage() {
           </h1>
 
           {/*
-           * Search bar container — max-width 680px on desktop, full
-           * width on mobile. Centered via margin auto.
-           *
-           * MPD HiFi: "large, r-full rounded, surface-raised on
-           * surface-base, with a soft shadow-md that intensifies on focus."
-           *
-           * SearchBar is in stub mode here (no onChange/onSubmit props).
-           * SR-03 wires it to useSearch + SearchSuggestions.
-           *
-           * The suggestions panel (SearchSuggestions, SR-02) will be
-           * rendered here as a child/sibling after SR-03 is implemented.
-           * The container position:relative allows the panel to position
-           * absolutely below the search bar without affecting page layout.
+           * Search bar — also above fold, no scroll-reveal.
+           * Stub mode: wired to useSearch + SearchSuggestions in SR-03.
            */}
           <div
             className="home-search-wrapper"
@@ -181,40 +203,19 @@ export default function HomePage() {
             <SearchBar
               id="home-search-input"
               placeholder="Search a motorcycle — try 'GT 650'"
-              /*
-               * SR-03 placeholder: onFocus/onBlur will show/hide
-               * the SearchSuggestions panel when wired in Phase 6.
-               */
             />
-
             {/*
-             * SR-03 PLACEHOLDER — SearchSuggestions panel.
-             * Replace this comment with <SearchSuggestions /> after SR-02.
-             *
-             * <SearchSuggestions
-             *   isOpen={isSuggestionsOpen}
-             *   suggestions={suggestions}
-             *   recentSearches={recentSearches}
-             *   onSelect={handleSuggestionSelect}
-             *   onClose={handleSuggestionsClose}
-             *   query={query}
-             * />
+             * SR-03 PLACEHOLDER: <SearchSuggestions /> added here in Phase 6.
              */}
           </div>
         </section>
 
         {/* ── HERO: Rotating featured motorcycle ────────────────── */}
         {/*
-         * BikeHero sits below the search section with space-8 gap.
-         * Full-bleed — no horizontal padding on the hero section.
-         *
-         * MPD Section 5.1:
-         *   "Hero motorcycle section is now secondary, placed directly
-         *   below the search bar/suggestion panel."
-         *
-         * The home-hero-gap class applies:
-         *   Desktop: 120px (space-8)
-         *   Mobile:  64px (compressed space-8)
+         * No scroll-reveal on the hero — it is the largest element
+         * on the page and positioned immediately below the fold.
+         * Animating it would create a jarring empty space flash.
+         * The hero appears instantly — premium, confident, immediate.
          */}
         <section
           aria-label="Featured motorcycles"
@@ -226,21 +227,9 @@ export default function HomePage() {
           />
         </section>
 
-        {/* ── BROWSE SECTIONS: Brand, Category, Price ───────────── */}
-        {/*
-         * All three browse sections share the same horizontal padding
-         * and gap rhythm. Each is a distinct <section> with an
-         * aria-label for screen reader navigation.
-         *
-         * Section heading pattern:
-         *   Small uppercase label (body-sm, ink-tertiary, tracking-widest)
-         *   followed immediately by the pill/chip row.
-         *   No large display headings — these are quiet browse aids.
-         *
-         * MPD HiFi: "Browse by Category and Browse by Price as quiet
-         * pill-button rows — text-forward, no icons needed."
-         */}
+        {/* ── BROWSE SECTIONS ───────────────────────────────────── */}
         <div
+          className="home-content-pad"
           style={{
             maxWidth: '1440px',
             margin: '0 auto',
@@ -249,166 +238,126 @@ export default function HomePage() {
         >
 
           {/* ── Browse by Brand ─────────────────────────────────── */}
+          {/*
+           * SCROLL-REVEAL: The entire brand section fades + slides up
+           * when it enters the viewport. ref is attached to the section.
+           *
+           * Each individual BrandLogoChip also has a stagger delay
+           * (index × 60ms) so they wave in left-to-right.
+           *
+           * MPD H-08: "Stagger delay 60ms between brand logo chips."
+           *
+           * The will-animate/is-visible pattern:
+           *   - will-animate: sets initial hidden state (opacity 0, translateY 16px)
+           *   - is-visible: triggers the fade-slide-up keyframe (400ms)
+           */}
           <section
+            ref={brandSection.ref as React.RefObject<HTMLElement>}
             aria-label="Browse by brand"
-            className="home-section-gap"
+            className={`home-section-gap will-animate${brandSection.isVisible ? ' is-visible' : ''}`}
           >
-            {/*
-             * Section label — uppercase body-sm per MPD section heading pattern.
-             */}
-            <p
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: '12px',
-                fontWeight: 600,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                color: 'var(--color-ink-tertiary)',
-                margin: '0 0 24px',
-              }}
-            >
+            <p className="home-section-label">
               Browse by Brand
             </p>
 
             {/*
-             * Brand logo chip grid.
-             * Desktop: horizontal row, wraps if needed.
-             * Mobile: horizontal scroll (BrandLogoChip is flex-shrink: 0).
+             * Brand chips container — flex row, wraps on desktop,
+             * scrolls horizontally on mobile.
              *
-             * MPD HiFi: "circular r-full logo chips on surface-sunken,
-             * monochrome by default, gaining their brand accent color
-             * and a subtle lift on hover."
+             * Each chip wrapper has an animationDelay set via inline style.
+             * The delay only applies when the is-visible class is active
+             * (because the fade-slide-up animation is triggered by is-visible).
+             * When is-visible fires, each chip starts its own animation
+             * with the staggered delay — creating the wave effect.
              *
-             * BRANDS from constants/brands.ts (S-08) provides the
-             * initial 6 brands. Additional brands are added via admin.
-             * BrandLogoChip uses fallback initials (no logoUrl) until
-             * brand logos are uploaded via admin (A-08 → DB-03).
+             * The wrapper div (not BrandLogoChip itself) carries the
+             * stagger style so BrandLogoChip stays pure and reusable.
              */}
             <div
+              className="brand-chips-track"
               style={{
                 display: 'flex',
                 flexWrap: 'wrap',
                 gap: '16px',
-                /*
-                 * On mobile: horizontal scroll without visible scrollbar.
-                 * overflowX: auto + flexWrap: nowrap achieves this.
-                 * Mirroring the CategoryPills/PriceRangePills pattern.
-                 */
               }}
-              className="brand-chips-track"
             >
-              {BRANDS.map((brand) => (
-                <BrandLogoChip
+              {BRANDS.map((brand, index) => (
+                <div
                   key={brand.slug}
-                  slug={brand.slug}
-                  name={brand.name}
-                  accentColor={brand.accentColor}
-                  /*
-                   * logoUrl is absent here — BrandLogoChip renders
-                   * initials fallback. Cloudinary logo URLs are set
-                   * after brands are added to MongoDB via admin (DB-03).
-                   */
-                  size={80}
-                />
+                  style={{
+                    /*
+                     * Stagger delay: each chip animates 60ms after the previous.
+                     * Index 0: 0ms, Index 1: 60ms, Index 2: 120ms, etc.
+                     * Applied as animationDelay so it takes effect when the
+                     * parent section's is-visible class triggers the animation.
+                     *
+                     * Note: animationDelay only has effect when an animation
+                     * is running. Setting it on a static element has no cost.
+                     */
+                    animationDelay: `${index * 60}ms`,
+                    /*
+                     * will-animate state is inherited from the parent section.
+                     * Individual chips don't need their own will-animate class
+                     * because the parent section already handles the overall
+                     * section reveal. The stagger only affects timing within
+                     * the parent animation — not a separate animation per chip.
+                     *
+                     * For the stagger to work correctly on individual chips,
+                     * each chip needs its own will-animate + is-visible classes.
+                     */
+                  }}
+                  className={`will-animate${brandSection.isVisible ? ' is-visible' : ''}`}
+                >
+                  <BrandLogoChip
+                    slug={brand.slug}
+                    name={brand.name}
+                    accentColor={brand.accentColor}
+                    size={80}
+                  />
+                </div>
               ))}
             </div>
           </section>
 
           {/* ── Browse by Category ──────────────────────────────── */}
+          {/*
+           * SCROLL-REVEAL: Category section fades + slides up as a unit.
+           * No per-pill stagger — pills are small and close together,
+           * staggering them would look too busy.
+           * MPD H-08 only mentions stagger for brand logo chips.
+           */}
           <section
+            ref={categorySection.ref as React.RefObject<HTMLElement>}
             aria-label="Browse by category"
-            className="home-section-gap"
+            className={`home-section-gap will-animate${categorySection.isVisible ? ' is-visible' : ''}`}
           >
-            <p
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: '12px',
-                fontWeight: 600,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                color: 'var(--color-ink-tertiary)',
-                margin: '0 0 16px',
-              }}
-            >
+            <p className="home-section-label">
               Browse by Category
             </p>
-
-            {/*
-             * CategoryPills — scrollable on mobile per H-03.
-             * No active slug on Home page (no filter selected).
-             */}
             <CategoryPills scrollable={true} />
           </section>
 
           {/* ── Browse by Price ─────────────────────────────────── */}
+          {/*
+           * SCROLL-REVEAL: Price section fades + slides up as a unit.
+           * Same pattern as category section — no per-pill stagger.
+           */}
           <section
+            ref={priceSection.ref as React.RefObject<HTMLElement>}
             aria-label="Browse by price"
-            className="home-section-gap"
+            className={`home-section-gap will-animate${priceSection.isVisible ? ' is-visible' : ''}`}
             style={{
-              /*
-               * Bottom padding — space between the last browse section
-               * and the Footer. Uses space-8 (120px desktop / 64px mobile)
-               * for generous breathing room before the dark footer.
-               */
               paddingBottom: 'clamp(64px, 10vw, 120px)',
             }}
           >
-            <p
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: '12px',
-                fontWeight: 600,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                color: 'var(--color-ink-tertiary)',
-                margin: '0 0 16px',
-              }}
-            >
+            <p className="home-section-label">
               Browse by Price
             </p>
-
-            {/*
-             * PriceRangePills — scrollable on mobile per H-04.
-             * No active slug on Home page.
-             */}
             <PriceRangePills scrollable={true} />
           </section>
+
         </div>
       </main>
-
-      {/*
-       * Mobile horizontal scroll style for brand chips track.
-       * Mirrors the CategoryPills/PriceRangePills scrollbar-hide pattern.
-       */}
-      <style>{`
-        .brand-chips-track::-webkit-scrollbar {
-          display: none;
-        }
-        .brand-chips-track {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        @media (max-width: 768px) {
-          .brand-chips-track {
-            flex-wrap: nowrap !important;
-            overflow-x: auto !important;
-            padding-bottom: 4px;
-          }
-          #home-main {
-            overflow-x: hidden;
-          }
-        }
-        @media (max-width: 768px) {
-          section[aria-label="Search motorcycles"] {
-            padding-left: 20px !important;
-            padding-right: 20px !important;
-          }
-          div[style*="padding: 0 32px"] {
-            padding-left: 20px !important;
-            padding-right: 20px !important;
-          }
-        }
-      `}</style>
     </>
   )
 }
