@@ -3,44 +3,12 @@
 /*
  * Header — Site-wide primary navigation header.
  *
- * MPD Task L-02:
- *   "MotoHub logo (text or SVG), navigation links (Brands, Categories),
- *   compact search icon that expands SearchBarCompact on click
- *   (wire up later in Phase 6 — leave as placeholder click for now).
- *   Responsive: hamburger menu icon on mobile."
+ * SR-04 change:
+ *   Replace the placeholder handleSearchClick() console.log with
+ *   the real <SearchBarCompact /> component.
+ *   The search icon button is now rendered by SearchBarCompact itself.
  *
- * MPD Section 6, Desktop Design Rules:
- *   "Sticky header on scroll (compact version with logo + search icon
- *   that expands to full search bar on click) — not the bottom action bar."
- *   Note: Sticky behaviour is implemented in L-03 (HeaderCompact) and
- *   L-04 (useStickyHeader). This component is the default/full state only.
- *
- * MPD Component Library:
- *   Header/Nav | Default (top of page)
- *
- * SEARCH ICON:
- *   The search icon onClick is a placeholder in L-02.
- *   It is wired to SearchBarCompact (SR-04) in Phase 6.
- *   A console.log is used to confirm the click registers during testing.
- *
- * MOBILE:
- *   Hamburger icon (menu) opens a full-width overlay drawer.
- *   Drawer contains the same nav links as the desktop header.
- *   Close icon dismisses the drawer.
- *   Drawer closes automatically on route change via usePathname.
- *
- * WHY 'use client':
- *   Mobile menu open/close state requires useState.
- *   usePathname (route change close) requires a client hook.
- *   The search icon click handler requires an event handler.
- *
- * DESIGN:
- *   Background: surface-raised (#FFFFFF) with a hairline border-bottom.
- *   Height: 64px desktop / 56px mobile.
- *   Max content width: 1440px, centered.
- *   Logo: display typeface, 20px, weight 600.
- *   Nav links: Ghost style (no fill, ink-secondary, ink-primary on hover).
- *   Right actions: Icon buttons (search, hamburger).
+ * All other code is preserved exactly from L-02.
  */
 
 import Link from 'next/link'
@@ -48,6 +16,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Icon from '@/components/ui/Icon'
 import Button from '@/components/ui/Button'
+import SearchBarCompact from '@/components/search/SearchBarCompact'
 import { BRANDS } from '@/constants/brands'
 import { CATEGORIES } from '@/constants/categories'
 
@@ -64,20 +33,11 @@ interface NavLink {
 // Navigation data
 // ---------------------------------------------------------------------------
 
-/*
- * Primary nav links — desktop inline, mobile drawer list.
- * Brands and Categories are the only top-level nav items per MPD.
- * Individual brand/category pages are discovered via these hub pages.
- */
 const PRIMARY_NAV: NavLink[] = [
   { label: 'Brands', href: '/brands' },
   { label: 'Categories', href: '/category/cruiser' },
 ]
 
-/*
- * Mobile drawer nav — expanded set showing brand + category quick links.
- * Provides immediate access to popular destinations without an extra tap.
- */
 const MOBILE_BRAND_LINKS: NavLink[] = BRANDS.map((brand) => ({
   label: brand.name,
   href: `/brands/${brand.slug}`,
@@ -92,17 +52,16 @@ const MOBILE_CATEGORY_LINKS: NavLink[] = CATEGORIES.map((cat) => ({
 // Sub-components
 // ---------------------------------------------------------------------------
 
-/*
- * HeaderLogo — MotoHub360 wordmark.
- * Matches the footer logo style for brand consistency.
- * Links to the Home page.
- */
 function HeaderLogo() {
   return (
     <Link
       href="/"
       aria-label="MotoHub360 — Go to homepage"
-      style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+      style={{
+        textDecoration: 'none',
+        display: 'inline-flex',
+        alignItems: 'center',
+      }}
     >
       <span
         style={{
@@ -122,11 +81,6 @@ function HeaderLogo() {
   )
 }
 
-/*
- * DesktopNav — horizontal nav link row shown on desktop.
- * Uses Ghost button visual style: no fill, ink-secondary text,
- * ink-primary on hover, per MPD Section 6, Buttons.
- */
 function DesktopNav({ currentPath }: { currentPath: string }) {
   return (
     <nav
@@ -167,13 +121,6 @@ function DesktopNav({ currentPath }: { currentPath: string }) {
   )
 }
 
-/*
- * MobileDrawer — full-height overlay menu for mobile.
- * Slides in from the right when the hamburger is tapped.
- * Contains brand and category quick links for immediate access.
- *
- * Trap focus is not implemented in L-02 — added in Q-04 (accessibility pass).
- */
 function MobileDrawer({
   isOpen,
   onClose,
@@ -185,7 +132,6 @@ function MobileDrawer({
 }) {
   return (
     <>
-      {/* Backdrop */}
       <div
         aria-hidden="true"
         onClick={onClose}
@@ -201,7 +147,6 @@ function MobileDrawer({
         }}
       />
 
-      {/* Drawer panel */}
       <div
         role="dialog"
         aria-modal="true"
@@ -222,7 +167,6 @@ function MobileDrawer({
           overflowY: 'auto',
         }}
       >
-        {/* Drawer header */}
         <div
           style={{
             display: 'flex',
@@ -247,10 +191,7 @@ function MobileDrawer({
           </Button>
         </div>
 
-        {/* Drawer content */}
         <div style={{ padding: '24px 20px', flex: 1 }}>
-
-          {/* Brands section */}
           <div style={{ marginBottom: '32px' }}>
             <p
               style={{
@@ -260,7 +201,6 @@ function MobileDrawer({
                 letterSpacing: '0.1em',
                 textTransform: 'uppercase',
                 color: 'var(--color-ink-tertiary)',
-                marginBottom: '12px',
                 margin: '0 0 12px',
               }}
             >
@@ -286,8 +226,10 @@ function MobileDrawer({
                           : 'var(--color-ink-secondary)',
                         textDecoration: 'none',
                         padding: '10px 0',
-                        borderBottom: '1px solid var(--color-border-hairline)',
-                        transition: 'color 200ms cubic-bezier(0.4,0,0.2,1)',
+                        borderBottom:
+                          '1px solid var(--color-border-hairline)',
+                        transition:
+                          'color 200ms cubic-bezier(0.4,0,0.2,1)',
                       }}
                     >
                       {link.label}
@@ -310,7 +252,8 @@ function MobileDrawer({
                     color: 'var(--color-accent)',
                     textDecoration: 'none',
                     padding: '12px 0 0',
-                    transition: 'opacity 200ms cubic-bezier(0.4,0,0.2,1)',
+                    transition:
+                      'opacity 200ms cubic-bezier(0.4,0,0.2,1)',
                   }}
                 >
                   All brands
@@ -320,7 +263,6 @@ function MobileDrawer({
             </ul>
           </div>
 
-          {/* Categories section */}
           <div>
             <p
               style={{
@@ -355,8 +297,10 @@ function MobileDrawer({
                           : 'var(--color-ink-secondary)',
                         textDecoration: 'none',
                         padding: '10px 0',
-                        borderBottom: '1px solid var(--color-border-hairline)',
-                        transition: 'color 200ms cubic-bezier(0.4,0,0.2,1)',
+                        borderBottom:
+                          '1px solid var(--color-border-hairline)',
+                        transition:
+                          'color 200ms cubic-bezier(0.4,0,0.2,1)',
                       }}
                     >
                       {link.label}
@@ -368,7 +312,6 @@ function MobileDrawer({
           </div>
         </div>
 
-        {/* Drawer footer */}
         <div
           style={{
             padding: '20px',
@@ -400,19 +343,10 @@ export default function Header() {
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  /*
-   * Close mobile drawer on route change.
-   * When the user taps a link inside the drawer, Next.js navigates
-   * and pathname changes — this effect closes the drawer cleanly.
-   */
   useEffect(() => {
     setMobileMenuOpen(false)
   }, [pathname])
 
-  /*
-   * Prevent body scroll when mobile drawer is open.
-   * Restores scroll on close or unmount.
-   */
   useEffect(() => {
     if (mobileMenuOpen) {
       document.body.style.overflow = 'hidden'
@@ -424,23 +358,8 @@ export default function Header() {
     }
   }, [mobileMenuOpen])
 
-  /*
-   * Search icon click handler — placeholder for SR-04.
-   * SearchBarCompact expand logic is wired in Phase 6.
-   */
-  function handleSearchClick() {
-    /*
-     * SR-04: Replace this with SearchBarCompact.open() or
-     * equivalent state setter when SearchBarCompact is built.
-     */
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[Header] Search icon clicked — wire to SearchBarCompact in SR-04')
-    }
-  }
-
   return (
     <>
-      {/* ── Scoped styles ─────────────────────────────────────────── */}
       <style>{`
         .header-nav-link:hover {
           color: var(--color-ink-primary) !important;
@@ -459,8 +378,6 @@ export default function Header() {
           border-radius: 4px;
           color: var(--color-ink-primary) !important;
         }
-
-        /* Hide desktop nav on mobile */
         @media (max-width: 768px) {
           .header-desktop-nav {
             display: none !important;
@@ -472,8 +389,6 @@ export default function Header() {
             display: flex !important;
           }
         }
-
-        /* Hide mobile hamburger on desktop */
         @media (min-width: 769px) {
           .header-mobile-actions {
             display: none !important;
@@ -481,7 +396,6 @@ export default function Header() {
         }
       `}</style>
 
-      {/* ── Header bar ────────────────────────────────────────────── */}
       <header
         role="banner"
         style={{
@@ -491,21 +405,11 @@ export default function Header() {
           right: 0,
           zIndex: 30,
           borderBottom: '1px solid var(--color-border-hairline)',
-          /*
-           * Subtle backdrop blur — adds premium depth when content
-           * scrolls behind the header.
-           */
           backdropFilter: 'blur(8px)',
           WebkitBackdropFilter: 'blur(8px)',
-          /*
-           * Semi-transparent background works with backdrop-filter.
-           * Full opacity is maintained via rgba with 0.95 alpha —
-           * content remains readable while blur creates depth.
-           */
           backgroundColor: 'rgba(255,255,255,0.95)',
         }}
       >
-        {/* Inner container — max 1440px centered */}
         <div
           style={{
             maxWidth: '1440px',
@@ -519,17 +423,17 @@ export default function Header() {
           }}
           className="header-inner"
         >
-          {/* ── Left: Logo ──────────────────────────────────────── */}
+          {/* Left: Logo */}
           <div style={{ flexShrink: 0 }}>
             <HeaderLogo />
           </div>
 
-          {/* ── Centre: Desktop navigation ──────────────────────── */}
+          {/* Centre: Desktop navigation */}
           <div className="header-desktop-nav" style={{ flex: 1 }}>
             <DesktopNav currentPath={pathname} />
           </div>
 
-          {/* ── Right: Desktop actions (search) ─────────────────── */}
+          {/* Right: Desktop search — now SearchBarCompact */}
           <div
             className="header-desktop-search"
             style={{
@@ -540,21 +444,14 @@ export default function Header() {
             }}
           >
             {/*
-             * Search icon button — placeholder until SR-04.
-             * Will expand SearchBarCompact overlay on click.
+             * SR-04: Replace placeholder handleSearchClick with SearchBarCompact.
+             * SearchBarCompact renders its own trigger button (the search icon)
+             * and the overlay — no wrapper button needed here.
              */}
-            <Button
-              variant="icon"
-              size="md"
-              aria-label="Open search"
-              onClick={handleSearchClick}
-              title="Search motorcycles"
-            >
-              <Icon name="search" size={18} />
-            </Button>
+            <SearchBarCompact />
           </div>
 
-          {/* ── Right: Mobile actions (search + hamburger) ────────── */}
+          {/* Right: Mobile actions — search + hamburger */}
           <div
             className="header-mobile-actions"
             style={{
@@ -563,14 +460,11 @@ export default function Header() {
               flexShrink: 0,
             }}
           >
-            <Button
-              variant="icon"
-              size="md"
-              aria-label="Open search"
-              onClick={handleSearchClick}
-            >
-              <Icon name="search" size={18} />
-            </Button>
+            {/*
+             * SR-04: SearchBarCompact on mobile opens the full overlay.
+             * Same component as desktop — the overlay covers the full screen.
+             */}
+            <SearchBarCompact />
 
             <Button
               variant="icon"
@@ -585,10 +479,6 @@ export default function Header() {
           </div>
         </div>
 
-        {/*
-         * Mobile header height adjustment.
-         * 64px desktop → 56px mobile for tighter proportions.
-         */}
         <style>{`
           @media (max-width: 768px) {
             .header-inner {
@@ -599,7 +489,6 @@ export default function Header() {
         `}</style>
       </header>
 
-      {/* ── Mobile drawer ─────────────────────────────────────────── */}
       <div id="mobile-navigation-drawer">
         <MobileDrawer
           isOpen={mobileMenuOpen}

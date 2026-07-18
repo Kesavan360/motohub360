@@ -3,50 +3,11 @@
 /*
  * HeaderCompact — Sticky scroll variant of the site header.
  *
- * MPD Task L-03:
- *   "Smaller height, logo only + search icon. Appears after 80px scroll
- *   via useStickyHeader hook. Slides in from top with 240ms ease transition."
+ * SR-04 change:
+ *   Replace the placeholder handleSearchClick() console.log with
+ *   the real <SearchBarCompact /> component.
  *
- * MPD Section 6, Desktop Design Rules:
- *   "Sticky header on scroll (compact version with logo + search icon
- *   that expands to full search bar on click), not the bottom action bar
- *   (which is mobile-only)."
- *
- * MPD Component Library:
- *   Header/Nav | Compact/Sticky (on scroll)
- *
- * RELATIONSHIP TO L-02 (Header):
- *   - Header (L-02)        → default state, shown at top of page
- *   - HeaderCompact (L-03) → appears after 80px scroll, replaces Header
- *   The swap logic is implemented in the root layout (L-06) using
- *   useStickyHeader (L-04). This component is the visual compact variant only.
- *
- * RELATIONSHIP TO L-04 (useStickyHeader):
- *   HeaderCompact is rendered by L-06 when useStickyHeader returns true.
- *   This component does NOT call useStickyHeader itself — separation of
- *   concerns keeps the component purely presentational.
- *
- * SEARCH ICON:
- *   Placeholder onClick identical to L-02.
- *   Wired to SearchBarCompact (SR-04) in Phase 6.
- *
- * DESIGN DIFFERENCES FROM Header (L-02):
- *   - Height: 48px (vs 64px desktop in L-02)
- *   - Logo only — no desktop nav links visible
- *   - Entrance: slides down from -100% with 240ms ease (MPD spec)
- *   - Background: surface-raised at 0.97 opacity with blur
- *   - Shadow: shadow-md (more pronounced than L-02 hairline border)
- *     to visually separate from content below during scroll.
- *
- * MOBILE:
- *   Same compact behaviour on mobile as desktop — logo + search + hamburger.
- *   Height: 48px on both breakpoints (already compact).
- *   The mobile drawer is the same component as L-02 to avoid duplication.
- *
- * WHY 'use client':
- *   Mobile menu open/close state requires useState.
- *   usePathname (route change close) requires a client hook.
- *   Search and hamburger onClick handlers require event handlers.
+ * All other code is preserved exactly from L-03.
  */
 
 import Link from 'next/link'
@@ -54,6 +15,7 @@ import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Icon from '@/components/ui/Icon'
 import Button from '@/components/ui/Button'
+import SearchBarCompact from '@/components/search/SearchBarCompact'
 import { BRANDS } from '@/constants/brands'
 import { CATEGORIES } from '@/constants/categories'
 
@@ -68,7 +30,6 @@ interface NavLink {
 
 // ---------------------------------------------------------------------------
 // Mobile drawer data
-// Identical to L-02 — same content, same structure.
 // ---------------------------------------------------------------------------
 
 const MOBILE_BRAND_LINKS: NavLink[] = BRANDS.map((brand) => ({
@@ -85,11 +46,6 @@ const MOBILE_CATEGORY_LINKS: NavLink[] = CATEGORIES.map((cat) => ({
 // Sub-components
 // ---------------------------------------------------------------------------
 
-/*
- * CompactLogo — same wordmark as L-02 HeaderLogo.
- * Defined locally to keep HeaderCompact self-contained and
- * avoid cross-component imports between layout components.
- */
 function CompactLogo() {
   return (
     <Link
@@ -119,12 +75,6 @@ function CompactLogo() {
   )
 }
 
-/*
- * CompactMobileDrawer — identical in structure to MobileDrawer in L-02.
- * Duplicated here to keep HeaderCompact fully self-contained.
- * If drawer logic grows significantly, extract to a shared
- * MobileDrawer component in a future refactor task.
- */
 function CompactMobileDrawer({
   isOpen,
   onClose,
@@ -136,7 +86,6 @@ function CompactMobileDrawer({
 }) {
   return (
     <>
-      {/* Backdrop */}
       <div
         aria-hidden="true"
         onClick={onClose}
@@ -152,7 +101,6 @@ function CompactMobileDrawer({
         }}
       />
 
-      {/* Drawer panel */}
       <div
         role="dialog"
         aria-modal="true"
@@ -173,7 +121,6 @@ function CompactMobileDrawer({
           overflowY: 'auto',
         }}
       >
-        {/* Drawer header */}
         <div
           style={{
             display: 'flex',
@@ -198,10 +145,7 @@ function CompactMobileDrawer({
           </Button>
         </div>
 
-        {/* Drawer content */}
         <div style={{ padding: '24px 20px', flex: 1 }}>
-
-          {/* Brands section */}
           <div style={{ marginBottom: '32px' }}>
             <p
               style={{
@@ -273,7 +217,6 @@ function CompactMobileDrawer({
             </ul>
           </div>
 
-          {/* Categories section */}
           <div>
             <p
               style={{
@@ -323,7 +266,6 @@ function CompactMobileDrawer({
           </div>
         </div>
 
-        {/* Drawer footer */}
         <div
           style={{
             padding: '20px',
@@ -355,16 +297,10 @@ export default function HeaderCompact() {
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  /*
-   * Close mobile drawer on route change.
-   */
   useEffect(() => {
     setMobileMenuOpen(false)
   }, [pathname])
 
-  /*
-   * Prevent body scroll when mobile drawer is open.
-   */
   useEffect(() => {
     if (mobileMenuOpen) {
       document.body.style.overflow = 'hidden'
@@ -376,20 +312,8 @@ export default function HeaderCompact() {
     }
   }, [mobileMenuOpen])
 
-  /*
-   * Search icon click handler — placeholder for SR-04.
-   */
-  function handleSearchClick() {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(
-        '[HeaderCompact] Search icon clicked — wire to SearchBarCompact in SR-04',
-      )
-    }
-  }
-
   return (
     <>
-      {/* ── Scoped styles ─────────────────────────────────────────── */}
       <style>{`
         .compact-drawer-link:hover {
           color: var(--color-ink-primary) !important;
@@ -401,15 +325,6 @@ export default function HeaderCompact() {
           color: var(--color-ink-primary) !important;
         }
 
-        /*
-         * Slide-in entrance animation — MPD L-03:
-         * "Slides in from top with 240ms ease transition."
-         *
-         * Applied to the header element itself.
-         * The parent (L-06 root layout) conditionally renders this
-         * component when useStickyHeader returns true, triggering
-         * the animation on mount.
-         */
         @keyframes compact-header-enter {
           from {
             transform: translateY(-100%);
@@ -425,14 +340,12 @@ export default function HeaderCompact() {
           animation: compact-header-enter 240ms cubic-bezier(0.4,0,0.2,1) forwards;
         }
 
-        /* Mobile actions: hidden on desktop */
         @media (min-width: 769px) {
           .compact-mobile-actions {
             display: none !important;
           }
         }
 
-        /* Desktop search: hidden on mobile */
         @media (max-width: 768px) {
           .compact-desktop-search {
             display: none !important;
@@ -446,7 +359,6 @@ export default function HeaderCompact() {
         }
       `}</style>
 
-      {/* ── Compact header bar ────────────────────────────────────── */}
       <header
         role="banner"
         aria-label="Site header — compact"
@@ -457,29 +369,18 @@ export default function HeaderCompact() {
           left: 0,
           right: 0,
           zIndex: 30,
-          /*
-           * Shadow-md per Design System — more prominent than the
-           * hairline border on the default Header. Creates visual
-           * separation from scrolled content beneath.
-           */
           boxShadow: '0 4px 12px rgba(15,16,20,0.08)',
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
           backgroundColor: 'rgba(255,255,255,0.97)',
         }}
       >
-        {/* Inner container — max 1440px, centered */}
         <div
           className="compact-header-inner"
           style={{
             maxWidth: '1440px',
             margin: '0 auto',
             padding: '0 32px',
-            /*
-             * Height: 48px — 16px shorter than the default 64px Header.
-             * Creates a visually tighter, more minimal feel when
-             * the user is scrolled into content.
-             */
             height: '48px',
             display: 'flex',
             alignItems: 'center',
@@ -487,12 +388,12 @@ export default function HeaderCompact() {
             gap: '16px',
           }}
         >
-          {/* ── Left: Logo ──────────────────────────────────────── */}
+          {/* Left: Logo */}
           <div style={{ flexShrink: 0 }}>
             <CompactLogo />
           </div>
 
-          {/* ── Right: Desktop search icon ───────────────────────── */}
+          {/* Right: Desktop search — SearchBarCompact */}
           <div
             className="compact-desktop-search"
             style={{
@@ -501,18 +402,13 @@ export default function HeaderCompact() {
               flexShrink: 0,
             }}
           >
-            <Button
-              variant="icon"
-              size="md"
-              aria-label="Open search"
-              onClick={handleSearchClick}
-              title="Search motorcycles"
-            >
-              <Icon name="search" size={18} />
-            </Button>
+            {/*
+             * SR-04: Replace placeholder handleSearchClick with SearchBarCompact.
+             */}
+            <SearchBarCompact />
           </div>
 
-          {/* ── Right: Mobile actions ────────────────────────────── */}
+          {/* Right: Mobile actions */}
           <div
             className="compact-mobile-actions"
             style={{
@@ -521,14 +417,10 @@ export default function HeaderCompact() {
               flexShrink: 0,
             }}
           >
-            <Button
-              variant="icon"
-              size="md"
-              aria-label="Open search"
-              onClick={handleSearchClick}
-            >
-              <Icon name="search" size={18} />
-            </Button>
+            {/*
+             * SR-04: SearchBarCompact on mobile.
+             */}
+            <SearchBarCompact />
 
             <Button
               variant="icon"
@@ -544,7 +436,6 @@ export default function HeaderCompact() {
         </div>
       </header>
 
-      {/* ── Mobile drawer ─────────────────────────────────────────── */}
       <div id="compact-mobile-navigation-drawer">
         <CompactMobileDrawer
           isOpen={mobileMenuOpen}
