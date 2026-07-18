@@ -269,9 +269,12 @@ export interface BikeSummary {
  * Used in: SearchSuggestions component (SR-02).
  */
 export interface SearchSuggestion {
+  type: 'bike'
   slug: string
+  label: string
   brandSlug: string
-  name: string
+  brandName: string
+  accentColor?: string
   heroImageUrl: string
 }
 

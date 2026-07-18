@@ -157,6 +157,10 @@ export interface SearchBarProps {
    * Used for aria-controls on the SearchSuggestions panel (SR-02).
    */
   id?: string
+  onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void
+suggestionsId?: string
+activeSuggestionId?: string
+isSuggestionsOpen?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -171,6 +175,10 @@ const SearchBar = forwardRef<SearchBarHandle, SearchBarProps>(
       onSubmit,
       onFocus,
       onBlur,
+      onKeyDown,
+suggestionsId,
+activeSuggestionId,
+isSuggestionsOpen,
       placeholder = "Search a motorcycle — try 'GT 650'",
       autoFocus = false,
       className = '',
@@ -380,7 +388,9 @@ const SearchBar = forwardRef<SearchBarHandle, SearchBarProps>(
                * aria-expanded is false here — set to true by the parent
                * when SearchSuggestions panel is visible (SR-03).
                */
-              aria-expanded={false}
+              aria-expanded={isSuggestionsOpen}
+              aria-controls={suggestionsId}
+              aria-activedescendant={activeSuggestionId}
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
@@ -390,7 +400,10 @@ const SearchBar = forwardRef<SearchBarHandle, SearchBarProps>(
               onChange={handleChange}
               onFocus={handleFocus}
               onBlur={handleBlur}
-              onKeyDown={handleKeyDown}
+              onKeyDown={(e) => {
+                handleKeyDown(e)
+                onKeyDown?.(e)
+              }}
               placeholder={placeholder}
               className="search-bar-input"
               style={{
@@ -405,6 +418,7 @@ const SearchBar = forwardRef<SearchBarHandle, SearchBarProps>(
                 border: 'none',
                 borderRadius: '999px',
                 lineHeight: 1,
+            
                 /*
                  * Removes default browser 'search' input clear button (×).
                  * MotoHub360 provides its own clear button with consistent styling.
