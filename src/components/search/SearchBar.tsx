@@ -6,67 +6,32 @@
  * MPD Task H-01:
  *   "Large, r-full, shadow-md → shadow-lg on focus. Search icon left.
  *   Placeholder text per Design System. onChange fires useSearch hook
- *   (wired in Phase 6 — stub the handler for now). Full-width on mobile."
+ *   (wired in Phase 6). Full-width on mobile."
  *
- * MPD Section 5.1, Home Page:
- *   "Prominent search bar as the main element on the page — large,
- *   central, the primary way users find a specific bike (e.g. typing
- *   'GT 650')."
+ * SR-03 additions:
+ *   - suggestionsId?: string   → aria-controls on the input
+ *     Points to the SearchSuggestions panel (PANEL_ID from SR-02).
+ *   - activeSuggestionId?: string → aria-activedescendant on the input
+ *     Set to the id of the keyboard-highlighted suggestion row.
+ *   - isSuggestionsOpen?: boolean → dynamic aria-expanded on the input
+ *     True when the suggestions panel is visible.
+ *   - onKeyDown?: handler → external keyboard handler
+ *     Called from the internal handleKeyDown in addition to Escape logic.
+ *     Used by the Home page (SR-03) for ArrowUp/Down/Enter navigation.
+ *   - aria-haspopup="listbox" added for correct ARIA combobox semantics.
  *
- * MPD Section 6, Design System — Search Experience:
- *   "Search bar is now the single dominant visual element on the page —
- *   largest element, top priority, above everything including the hero."
+ * COMBOBOX ARIA PATTERN:
+ *   role="combobox" + aria-haspopup="listbox" + aria-expanded + aria-controls
+ *   + aria-activedescendant is the correct WCAG 2.1 combobox pattern.
+ *   The SearchSuggestions panel (SR-02) has role="listbox".
+ *   Each suggestion row has role="option".
+ *   This makes the search system fully accessible to screen readers.
  *
- * MPD High-Fidelity UI, Home Page:
- *   "Centered, roughly 30% down the viewport on desktop (higher on
- *   mobile, near the top under the header), sits the search bar:
- *   large, r-full rounded, surface-raised on surface-base, with a soft
- *   shadow-md that intensifies on focus. Placeholder text reads
- *   'Search a motorcycle — try GT 650' in ink-tertiary. To its left,
- *   a thin-stroke search icon in ink-secondary."
- *
- * MPD Section 15, Search Architecture:
- *   "Client calls GET /api/search/suggest?q=[query] with 150ms debounce."
- *   The debounce and API call live in useSearch (SR-01).
- *   This component accepts onChange and onSubmit as props so it
- *   remains decoupled from the search logic.
- *
- * COMPONENT ROLE:
- *   SearchBar is a controlled input component.
- *   It owns no search state — all state lives in the parent/hook.
- *   The Home page (H-06) will pass value + onChange from useSearch (SR-01).
- *   For H-01, onChange is a stub prop (console.log in dev).
- *
- * TWO SEARCH BAR COMPONENTS:
- *   SearchBar (this file, H-01) — Hero size, Home page only.
- *   SearchBarCompact (SR-04)    — Header icon → expands on click.
- *   Both share the same visual language but differ in size and context.
- *
- * SUGGESTIONS PANEL:
- *   SearchSuggestions (SR-02) is rendered by the parent (H-06/SR-03),
- *   not inside SearchBar. SearchBar only emits onChange/onSubmit.
- *   This keeps SearchBar reusable without coupling it to suggestions logic.
- *
- * DESIGN:
- *   - Container: surface-raised (#FFFFFF), r-full (999px)
- *   - Shadow: shadow-md at rest → shadow-lg on focus
- *   - Height: 56px desktop / 52px mobile
- *   - Left: search Icon (18px, ink-secondary)
- *   - Input: body-lg (18px), ink-primary text, ink-tertiary placeholder
- *   - Right: optional clear button (× icon) when value is non-empty
- *   - Transition: shadow 280ms premium ease
- *   - Full-width on mobile (no max-width constraint)
- *
- * ACCESSIBILITY:
- *   - role="search" on the form wrapper
- *   - aria-label on the input
- *   - Clear button has aria-label="Clear search"
- *   - Keyboard: Enter submits, Escape clears + blurs
- *
- * WHY 'use client':
- *   useState for isFocused (shadow transition).
- *   useRef for the input element (Escape key blur, focus management).
- *   onChange/onKeyDown event handlers.
+ * KEYBOARD EVENT ORDER:
+ *   1. External onKeyDown fires (navigation: ArrowUp/Down/Enter/Escape).
+ *   2. Internal Escape handling fires (clears input + blurs).
+ *   Both run on Escape — external closes the panel, internal clears and blurs.
+ *   For ArrowUp/Down/Enter: only external runs (navigation only).
  */
 
 import {
@@ -86,8 +51,7 @@ import Icon from '@/components/ui/Icon'
 
 /*
  * SearchBarHandle — imperative handle exposed via forwardRef.
- * Allows parent components (e.g. Home page) to programmatically
- * focus the search bar (e.g. on keyboard shortcut '/' or 'S').
+ * Allows parent components to programmatically focus/blur/clear.
  */
 export interface SearchBarHandle {
   focus: () => void
@@ -100,39 +64,69 @@ export interface SearchBarHandle {
  */
 export interface SearchBarProps {
   /*
-   * value — current search query string.
-   * Controlled input — parent manages this state (useSearch hook SR-01).
-   * Default: '' (empty string for uncontrolled usage in H-01 stub phase).
+   * value — current search query string (controlled input).
+   * Bound to useSearch.query in SR-03.
    */
   value?: string
 
   /*
    * onChange — called on every keystroke with the new query string.
-   * Parent passes this from useSearch hook (SR-01).
-   * Stub: console.log in development until SR-01 is implemented.
+   * Bound to useSearch.setQuery in SR-03.
    */
   onChange?: (value: string) => void
 
   /*
    * onSubmit — called when the user presses Enter or submits the form.
-   * Parent navigates to /search?q=[value] (wired in SR-03).
+   * Bound to useSearch.submitSearch in SR-03.
    */
   onSubmit?: (value: string) => void
 
   /*
    * onFocus — called when the input gains focus.
-   * Used by the parent to show the SearchSuggestions panel (SR-03).
+   * Bound to useSearch.setIsFocused(true) in SR-03.
    */
   onFocus?: () => void
 
   /*
    * onBlur — called when the input loses focus.
-   * Used by the parent to hide the SearchSuggestions panel (SR-03).
-   * Note: blur fires before suggestion click events — the parent must
-   * use a delayed hide (onMouseDown on suggestions panel) to prevent
-   * the panel from closing before a suggestion click registers.
+   * Bound to useSearch.setIsFocused(false) in SR-03.
+   * Note: use onMouseDown + preventDefault on suggestion rows to
+   * prevent blur from firing before a suggestion click registers.
    */
   onBlur?: () => void
+
+  /*
+   * onKeyDown — external keyboard handler.
+   * SR-03: passed from the Home page for ArrowUp/Down/Enter/Escape
+   * navigation in the SearchSuggestions panel.
+   * Called BEFORE the internal Escape handler so external logic
+   * can e.preventDefault() if needed.
+   */
+  onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void
+
+  /*
+   * suggestionsId — the HTML id of the suggestions panel element.
+   * SR-03: set to PANEL_ID from SearchSuggestions (SR-02).
+   * Applied as aria-controls on the combobox input.
+   * Tells assistive technology which element is the associated listbox.
+   */
+  suggestionsId?: string
+
+  /*
+   * activeSuggestionId — id of the currently keyboard-highlighted option.
+   * SR-03: set to `${OPTION_ID_PREFIX}${activeIndex}` when activeIndex >= 0.
+   * Applied as aria-activedescendant on the combobox input.
+   * Tells screen readers which suggestion is currently focused.
+   */
+  activeSuggestionId?: string
+
+  /*
+   * isSuggestionsOpen — whether the suggestions panel is currently visible.
+   * SR-03: computed from useSearch.isFocused + query length.
+   * Applied as aria-expanded on the combobox input.
+   * Default: false (suggestions panel closed).
+   */
+  isSuggestionsOpen?: boolean
 
   /*
    * placeholder — input placeholder text.
@@ -142,25 +136,19 @@ export interface SearchBarProps {
 
   /*
    * autoFocus — whether the input should focus on mount.
-   * Default: false. Use on the Home page if desired.
    */
   autoFocus?: boolean
 
   /*
    * className — additional classes for the outer container.
-   * Use for positioning/width constraints from the parent layout.
    */
   className?: string
 
   /*
    * id — HTML id on the input element.
-   * Used for aria-controls on the SearchSuggestions panel (SR-02).
+   * Used for label association and aria-controls references.
    */
   id?: string
-  onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void
-suggestionsId?: string
-activeSuggestionId?: string
-isSuggestionsOpen?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -175,10 +163,10 @@ const SearchBar = forwardRef<SearchBarHandle, SearchBarProps>(
       onSubmit,
       onFocus,
       onBlur,
-      onKeyDown,
-suggestionsId,
-activeSuggestionId,
-isSuggestionsOpen,
+      onKeyDown: externalOnKeyDown,
+      suggestionsId,
+      activeSuggestionId,
+      isSuggestionsOpen = false,
       placeholder = "Search a motorcycle — try 'GT 650'",
       autoFocus = false,
       className = '',
@@ -189,7 +177,6 @@ isSuggestionsOpen,
     /*
      * isFocused — tracks focus state for the shadow transition.
      * shadow-md at rest → shadow-lg on focus.
-     * This is visual-only state, not functional search state.
      */
     const [isFocused, setIsFocused] = useState(false)
 
@@ -200,9 +187,7 @@ isSuggestionsOpen,
     const inputRef = useRef<HTMLInputElement>(null)
 
     /*
-     * useImperativeHandle — expose focus/blur/clear to parent.
-     * Allows the Home page to focus the search bar on '/' keypress
-     * (a common search UX pattern) without managing focus internally.
+     * Expose focus/blur/clear to parent via forwardRef handle.
      */
     useImperativeHandle(ref, () => ({
       focus: () => inputRef.current?.focus(),
@@ -215,20 +200,14 @@ isSuggestionsOpen,
 
     /*
      * handleChange — fires on every keystroke.
-     * Extracts the string value from the event and passes to onChange prop.
-     * The debounce lives in useSearch (SR-01), not here.
      */
     function handleChange(e: ChangeEvent<HTMLInputElement>): void {
       const newValue = e.target.value
       if (onChange) {
         onChange(newValue)
       } else if (process.env.NODE_ENV === 'development') {
-        /*
-         * Stub behaviour until SR-01 useSearch is wired (H-06/SR-03).
-         * Logs the query so developers can confirm typing is working.
-         */
         console.log(
-          '[SearchBar] onChange stub — wire useSearch in SR-01:',
+          '[SearchBar] onChange stub — wire useSearch in SR-03:',
           newValue,
         )
       }
@@ -236,8 +215,6 @@ isSuggestionsOpen,
 
     /*
      * handleSubmit — fires on form Enter/submit.
-     * Prevents default browser form submission (page reload).
-     * Calls onSubmit prop with the current value.
      */
     function handleSubmit(e: FormEvent<HTMLFormElement>): void {
       e.preventDefault()
@@ -248,9 +225,27 @@ isSuggestionsOpen,
 
     /*
      * handleKeyDown — keyboard interaction.
-     * Escape: clears the input and blurs (dismisses suggestions panel).
+     *
+     * Step 1: Call external onKeyDown (navigation in suggestions panel).
+     *   The external handler handles ArrowUp/Down/Enter/Escape for
+     *   keyboard navigation. It may call e.preventDefault() for these.
+     *
+     * Step 2: Internal Escape handling.
+     *   Clears the input value and blurs the input.
+     *   Runs regardless of whether external handler prevented default
+     *   because clearing and blurring is always the correct Escape behavior.
      */
     function handleKeyDown(e: KeyboardEvent<HTMLInputElement>): void {
+      /*
+       * Step 1 — External handler (navigation, panel close, etc.).
+       */
+      externalOnKeyDown?.(e)
+
+      /*
+       * Step 2 — Internal Escape: clear input value + blur.
+       * Both behaviors (panel close via external + input clear via internal)
+       * should happen on Escape — they are complementary, not conflicting.
+       */
       if (e.key === 'Escape') {
         onChange?.('')
         inputRef.current?.blur()
@@ -259,7 +254,6 @@ isSuggestionsOpen,
 
     /*
      * handleFocus — input gains focus.
-     * Updates visual state (shadow) and notifies parent.
      */
     function handleFocus(): void {
       setIsFocused(true)
@@ -268,7 +262,6 @@ isSuggestionsOpen,
 
     /*
      * handleBlur — input loses focus.
-     * Updates visual state and notifies parent.
      */
     function handleBlur(): void {
       setIsFocused(false)
@@ -277,7 +270,6 @@ isSuggestionsOpen,
 
     /*
      * handleClear — clears the input when × button is clicked.
-     * Refocuses the input so the user can type a new query immediately.
      */
     function handleClear(): void {
       onChange?.('')
@@ -286,7 +278,6 @@ isSuggestionsOpen,
 
     /*
      * Dynamic shadow — shadow-md at rest, shadow-lg on focus.
-     * Values from MPD Section 6, Shadows.
      */
     const containerShadow = isFocused
       ? '0 12px 32px rgba(15,16,20,0.12)'
@@ -296,7 +287,6 @@ isSuggestionsOpen,
 
     return (
       <>
-        {/* Scoped focus-visible style for the input */}
         <style>{`
           .search-bar-input:focus {
             outline: none;
@@ -309,12 +299,16 @@ isSuggestionsOpen,
             outline: none;
             box-shadow: var(--shadow-focus);
           }
+          @media (max-width: 768px) {
+            .search-bar-input {
+              height: 52px !important;
+              font-size: 16px !important;
+            }
+          }
         `}</style>
 
         {/*
          * Form wrapper — role="search" per ARIA spec.
-         * Semantically marks this as a search landmark region.
-         * Screen readers announce "search" when the user navigates to it.
          */}
         <form
           role="search"
@@ -325,8 +319,6 @@ isSuggestionsOpen,
         >
           {/*
            * Input container — the visual pill (r-full, surface-raised).
-           * Position: relative to allow absolute positioning of icons.
-           * Transition: box-shadow only — no layout shift on focus.
            */}
           <div
             style={{
@@ -338,18 +330,11 @@ isSuggestionsOpen,
               borderRadius: '999px',
               boxShadow: containerShadow,
               transition: 'box-shadow 280ms cubic-bezier(0.4,0,0.2,1)',
-              /*
-               * Subtle border: always present but very low opacity.
-               * Provides definition on surface-base background without
-               * competing with the shadow as the primary visual cue.
-               */
               border: '1px solid var(--color-border-hairline)',
             }}
           >
             {/*
              * Search icon — left side, non-interactive.
-             * ink-secondary color, 18px per MPD spec.
-             * aria-hidden: the input's aria-label carries the context.
              */}
             <span
               aria-hidden="true"
@@ -372,10 +357,14 @@ isSuggestionsOpen,
             </span>
 
             {/*
-             * The search input itself.
-             * paddingLeft accommodates the search icon (20px edge + 18px icon + 12px gap = 50px).
-             * paddingRight accommodates the clear button when visible.
-             * Height: 56px desktop / reduced via CSS for mobile.
+             * The search input — combobox with full ARIA attributes.
+             *
+             * role="combobox" — identifies this as a combobox widget.
+             * aria-haspopup="listbox" — declares the associated listbox type.
+             * aria-expanded — true when the suggestions panel is visible.
+             * aria-controls — points to the suggestions panel by id.
+             * aria-activedescendant — id of the keyboard-highlighted option.
+             * aria-autocomplete="list" — inline + list autocomplete pattern.
              */}
             <input
               ref={inputRef}
@@ -383,11 +372,8 @@ isSuggestionsOpen,
               type="search"
               role="combobox"
               aria-label="Search a motorcycle"
+              aria-haspopup="listbox"
               aria-autocomplete="list"
-              /*
-               * aria-expanded is false here — set to true by the parent
-               * when SearchSuggestions panel is visible (SR-03).
-               */
               aria-expanded={isSuggestionsOpen}
               aria-controls={suggestionsId}
               aria-activedescendant={activeSuggestionId}
@@ -400,10 +386,7 @@ isSuggestionsOpen,
               onChange={handleChange}
               onFocus={handleFocus}
               onBlur={handleBlur}
-              onKeyDown={(e) => {
-                handleKeyDown(e)
-                onKeyDown?.(e)
-              }}
+              onKeyDown={handleKeyDown}
               placeholder={placeholder}
               className="search-bar-input"
               style={{
@@ -418,20 +401,12 @@ isSuggestionsOpen,
                 border: 'none',
                 borderRadius: '999px',
                 lineHeight: 1,
-            
-                /*
-                 * Removes default browser 'search' input clear button (×).
-                 * MotoHub360 provides its own clear button with consistent styling.
-                 */
                 WebkitAppearance: 'none',
               }}
             />
 
             {/*
              * Clear button — appears when value is non-empty.
-             * Circular icon button, surface-sunken fill, ink-secondary icon.
-             * Positioned absolutely on the right side of the input.
-             * type="button" prevents form submission on click.
              */}
             {showClearButton && (
               <button
@@ -458,10 +433,6 @@ isSuggestionsOpen,
                   transition:
                     'color 200ms cubic-bezier(0.4,0,0.2,1), ' +
                     'background-color 200ms cubic-bezier(0.4,0,0.2,1)',
-                  /*
-                   * Prevent clear button click from propagating to the
-                   * form and triggering handleSubmit.
-                   */
                 }}
               >
                 <Icon name="close" size={14} strokeWidth={2} />
@@ -469,20 +440,6 @@ isSuggestionsOpen,
             )}
           </div>
         </form>
-
-        {/*
-         * Mobile height adjustment.
-         * Desktop: 56px — generous, dominant per MPD HiFi spec.
-         * Mobile: 52px — slightly reduced to leave more vertical space.
-         */}
-        <style>{`
-          @media (max-width: 768px) {
-            .search-bar-input {
-              height: 52px !important;
-              font-size: 16px !important;
-            }
-          }
-        `}</style>
       </>
     )
   },
