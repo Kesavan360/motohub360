@@ -1,19 +1,19 @@
 /*
  * Price Range Listing Page — /price/[range]
  *
- * LP-07 Mobile Responsiveness Pass:
- *   - Added overflow-x: hidden to .price-page
- *   - Removed duplicate aria-live from header bike count
- *   - Adjusted price context block breakpoint from 480px to 640px
- *     so it hides earlier and avoids clipping on mid-range mobiles
- *   - Added safe-area-inset-bottom to grid section paddingBottom
- *   - Added min-width: 0 guard to price range badge for overflow
- *   - Added flex-shrink: 0 to price context dividers
- *   - Price range badge max-width + overflow truncation
+ * DB-08: Replaced mock data with real MongoDB query.
+ *   - connectDB() called before Mongoose operations
+ *   - Bike.find({ 'pricing.exShowroom': { $gte, $lte }, status: 'published' })
+ *     replaces getMockBikesForPriceRange()
+ *   - maxPrice === POSITIVE_INFINITY handled correctly in the $lte clause
+ *   - generateStaticParams() still uses static PRICE_RANGE_SLUGS (ranges are fixed)
+ *   - brandAccentMap built from BRAND_ACCENT_MAP
  */
 
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import connectDB from '@/lib/db/mongodb'
+import Bike from '@/lib/db/models/Bike'
 import Breadcrumb from '@/components/layout/Breadcrumb'
 import FilterBar from '@/components/listing/FilterBar'
 import BikeGrid from '@/components/listing/BikeGrid'
@@ -24,14 +24,31 @@ import {
   formatPriceInLakhs,
 } from '@/constants/priceRanges'
 import { BRAND_ACCENT_MAP } from '@/constants/brands'
-import { MOCK_FEATURED_BIKES } from '@/lib/mockData'
 import type { BikeSummary } from '@/types/bike'
+import type { FilterQuery } from 'mongoose'
+import type { IBike } from '@/lib/db/models/Bike'
+
+// ---------------------------------------------------------------------------
+// Rendering strategy
+// ---------------------------------------------------------------------------
 
 export const revalidate = 3600
 
+// ---------------------------------------------------------------------------
+// generateStaticParams
+// ---------------------------------------------------------------------------
+
+/*
+ * Price ranges are fixed per MPD Section 4 — always 4 slugs.
+ * No MongoDB query needed.
+ */
 export function generateStaticParams(): Array<{ range: string }> {
   return PRICE_RANGE_SLUGS.map((slug) => ({ range: slug }))
 }
+
+// ---------------------------------------------------------------------------
+// generateMetadata
+// ---------------------------------------------------------------------------
 
 export async function generateMetadata({
   params,
@@ -64,77 +81,9 @@ export async function generateMetadata({
   }
 }
 
-function getMockBikesForPriceRange(
-  minPrice: number,
-  maxPrice: number,
-): BikeSummary[] {
-  const ALL_MOCK_BIKES: Array<{
-    name: string
-    tagline: string
-    price: number
-    brandSlug: string
-    category: BikeSummary['category']
-    slug: string
-  }> = [
-    { slug: 'shine-100', name: 'Shine 100', tagline: 'Everyday Excellence', price: 74900, brandSlug: 'honda', category: 'cruiser' },
-    { slug: 'ct125x', name: 'CT125X', tagline: 'Tough Commuter', price: 84900, brandSlug: 'bajaj', category: 'cruiser' },
-    { slug: 'jupiter-125', name: 'Jupiter 125', tagline: 'The Extra Miler', price: 89900, brandSlug: 'tvs', category: 'scooter' },
-    { slug: 'ntorq-125', name: 'Ntorq 125', tagline: 'Be the Champ', price: 94900, brandSlug: 'tvs', category: 'scooter' },
-    { slug: 'raider-125', name: 'Raider 125', tagline: 'Daring by Design', price: 91900, brandSlug: 'tvs', category: 'naked' },
-    { slug: 'fascino-125', name: 'Fascino 125', tagline: 'Style Redefined', price: 84900, brandSlug: 'yamaha', category: 'scooter' },
-    { slug: 'pulsar-150', name: 'Pulsar 150', tagline: 'The Bikes Indians Love', price: 107000, brandSlug: 'bajaj', category: 'naked' },
-    { slug: 'avenger-street-160', name: 'Avenger Street 160', tagline: 'Cruise Boss', price: 115000, brandSlug: 'bajaj', category: 'cruiser' },
-    { slug: 'fz-s-v3', name: 'FZ-S V3', tagline: 'Street Warrior', price: 118900, brandSlug: 'yamaha', category: 'naked' },
-    { slug: 'hornet-2-0', name: 'Hornet 2.0', tagline: 'The Evolved Predator', price: 130900, brandSlug: 'honda', category: 'naked' },
-    { slug: 'cb200x', name: 'CB200X', tagline: 'Your Adventure Begins', price: 147900, brandSlug: 'honda', category: 'adventure' },
-    { slug: 'chetak', name: 'Chetak Electric', tagline: 'Electric Classic', price: 149900, brandSlug: 'bajaj', category: 'scooter' },
-    { slug: 'hunter-350', name: 'Hunter 350', tagline: 'City Born. Free Spirit.', price: 160000, brandSlug: 'royal-enfield', category: 'naked' },
-    { slug: 'ronin', name: 'Ronin', tagline: 'Own Your Road', price: 164900, brandSlug: 'tvs', category: 'naked' },
-    { slug: 'mt-15-v2', name: 'MT-15 V2', tagline: 'Masters of Torque', price: 167900, brandSlug: 'yamaha', category: 'naked' },
-    { slug: 'duke-125', name: 'Duke 125', tagline: 'The Beginning of Fast', price: 158000, brandSlug: 'ktm', category: 'naked' },
-    { slug: 'r15m', name: 'R15M', tagline: 'Born Racer', price: 185900, brandSlug: 'yamaha', category: 'sport' },
-    { slug: 'rc-125', name: 'RC 125', tagline: 'Race Ready', price: 189000, brandSlug: 'ktm', category: 'sport' },
-    { slug: 'pulsar-ns400z', name: 'Pulsar NS400Z', tagline: 'The Apex Predator', price: 189000, brandSlug: 'bajaj', category: 'naked' },
-    { slug: 'classic-350', name: 'Classic 350', tagline: 'Timeless Classic', price: 192000, brandSlug: 'royal-enfield', category: 'cruiser' },
-    { slug: 'cb350rs', name: 'CB350RS', tagline: 'Refined Rebel', price: 209900, brandSlug: 'honda', category: 'cruiser' },
-    { slug: 'duke-250', name: 'Duke 250', tagline: 'Born to Scrap', price: 212000, brandSlug: 'ktm', category: 'naked' },
-    { slug: 'meteor-350', name: 'Meteor 350', tagline: 'Cruise Easy, Live Free', price: 222000, brandSlug: 'royal-enfield', category: 'cruiser' },
-    { slug: 'dominar-400', name: 'Dominar 400', tagline: 'Conquer Every Road', price: 230000, brandSlug: 'bajaj', category: 'adventure' },
-    { slug: 'apache-rtr-310', name: 'Apache RTR 310', tagline: 'Unleash the Beast', price: 246900, brandSlug: 'tvs', category: 'naked' },
-    { slug: 'himalayan-450', name: 'Himalayan 450', tagline: 'Built for Adventure', price: 289000, brandSlug: 'royal-enfield', category: 'adventure' },
-    { slug: 'duke-390', name: 'Duke 390', tagline: 'Ready to Race', price: 295000, brandSlug: 'ktm', category: 'naked' },
-    { slug: 'apache-rr-310', name: 'Apache RR 310', tagline: 'Race DNA', price: 278900, brandSlug: 'tvs', category: 'sport' },
-    { slug: 'gt-650', name: 'GT 650', tagline: 'Modern Classic Roadster', price: 348000, brandSlug: 'royal-enfield', category: 'cruiser' },
-    { slug: 'continental-gt-650', name: 'Continental GT 650', tagline: 'Pure Café Racer', price: 338000, brandSlug: 'royal-enfield', category: 'cruiser' },
-    { slug: 'adventure-390', name: 'Adventure 390', tagline: 'Go Anywhere', price: 349000, brandSlug: 'ktm', category: 'adventure' },
-    { slug: 'rc-390', name: 'RC 390', tagline: 'Track Every Day', price: 327000, brandSlug: 'ktm', category: 'sport' },
-    { slug: 'mt-03', name: 'MT-03', tagline: 'Dark Side of Japan', price: 478900, brandSlug: 'yamaha', category: 'naked' },
-    { slug: 'r3', name: 'R3', tagline: 'Precision. Power. Pride.', price: 468900, brandSlug: 'yamaha', category: 'sport' },
-    { slug: 'cb500x', name: 'CB500X', tagline: 'Adventure, Your Way', price: 695000, brandSlug: 'honda', category: 'adventure' },
-    { slug: 'cbr650r', name: 'CBR 650R', tagline: 'Sport in Every Sense', price: 895000, brandSlug: 'honda', category: 'sport' },
-  ]
-
-  const filtered = ALL_MOCK_BIKES.filter(
-    (bike) =>
-      bike.price >= minPrice &&
-      (maxPrice === Number.POSITIVE_INFINITY || bike.price <= maxPrice),
-  )
-
-  return filtered.slice(0, 6).map((bike, index) => ({
-    _id: `mock-price-${bike.slug}-${index}`,
-    slug: bike.slug,
-    brandSlug: bike.brandSlug,
-    name: bike.name,
-    tagline: bike.tagline,
-    category: bike.category,
-    status: 'published' as const,
-    pricing: { exShowroom: bike.price },
-    heroImageUrl:
-      MOCK_FEATURED_BIKES[index % MOCK_FEATURED_BIKES.length]?.heroImageUrl ??
-      'https://res.cloudinary.com/demo/image/upload/v1/samples/landscapes/architecture-signs.jpg',
-    blurDataUrl: '',
-  }))
-}
+// ---------------------------------------------------------------------------
+// Page Component
+// ---------------------------------------------------------------------------
 
 export default async function PriceListingPage({
   params,
@@ -153,21 +102,41 @@ export default async function PriceListingPage({
     notFound()
   }
 
-  const bikes = getMockBikesForPriceRange(
-    rangeDef.minPrice,
-    rangeDef.maxPrice,
-  )
+  await connectDB()
 
-  const breadcrumbItems = [
-    { label: 'Home', href: '/' },
-    { label: rangeDef.fullLabel, href: `/price/${rangeSlug}` },
-  ]
+  /*
+   * Build the MongoDB price query.
+   *
+   * minPrice is always defined (never 0 except for "under-1-lakh").
+   * maxPrice is POSITIVE_INFINITY for "above-5-lakh" — omit $lte in this case.
+   *
+   * DB-08: Replaces getMockBikesForPriceRange().
+   */
+  const priceFilter: FilterQuery<IBike> = {
+    status: 'published',
+    'pricing.exShowroom': {
+      $gte: rangeDef.minPrice,
+      ...(rangeDef.maxPrice !== Number.POSITIVE_INFINITY
+        ? { $lte: rangeDef.maxPrice }
+        : {}),
+    },
+  }
 
-  const priceAccentMap: Record<string, string> =
-  bikes.reduce<Record<string, string>>((acc, bike) => {
+  const bikes = await Bike.find(priceFilter)
+    .select(
+      'slug brandSlug name tagline category status pricing heroImageUrl blurDataUrl publishedAt',
+    )
+    .sort({ 'pricing.exShowroom': 1 })
+    .lean<BikeSummary[]>()
+
+  /*
+   * Build brand accent map from actual bikes in this price range.
+   */
+  const priceAccentMap: Record<string, string> = bikes.reduce<
+    Record<string, string>
+  >((acc, bike) => {
     if (!acc[bike.brandSlug]) {
-      acc[bike.brandSlug] =
-        BRAND_ACCENT_MAP[bike.brandSlug] ?? '#15161A'
+      acc[bike.brandSlug] = BRAND_ACCENT_MAP[bike.brandSlug] ?? '#15161A'
     }
     return acc
   }, {})
@@ -178,71 +147,50 @@ export default async function PriceListingPage({
     ? `Above ${formatPriceInLakhs(rangeDef.minPrice)}`
     : `${formatPriceInLakhs(rangeDef.minPrice)} – ${formatPriceInLakhs(rangeDef.maxPrice)}`
 
+  const breadcrumbItems = [
+    { label: 'Home', href: '/' },
+    {
+      label: rangeDef.fullLabel,
+      href: `/price/${rangeSlug}`,
+    },
+  ]
+
   return (
     <>
       <style>{`
-        /*
-         * LP-07 FIX: overflow-x hidden on page wrapper.
-         */
         .price-page {
           min-height: 100vh;
           background-color: var(--color-surface-base);
           overflow-x: hidden;
         }
-
         .price-page-inner {
           max-width: 1440px;
           margin: 0 auto;
           padding: 0 32px;
         }
-
         @media (max-width: 768px) {
-          .price-page-inner {
-            padding: 0 20px;
-          }
+          .price-page-inner { padding: 0 20px; }
         }
-
         .price-header {
           padding: 32px 0 28px;
           border-bottom: 1px solid var(--color-border-hairline);
         }
-
         @media (max-width: 480px) {
-          .price-header {
-            padding: 20px 0 16px;
-          }
+          .price-header { padding: 20px 0 16px; }
         }
-
         .price-filter-row {
           padding: 20px 0;
           border-bottom: 1px solid var(--color-border-hairline);
         }
-
-        /*
-         * LP-07 FIX: safe-area-inset-bottom for iPhone home bar.
-         */
-        .price-grid-section {
-          padding: 48px 0 80px;
-        }
-
+        .price-grid-section { padding: 48px 0 80px; }
         @supports (padding-bottom: env(safe-area-inset-bottom)) {
           .price-grid-section {
             padding-bottom: calc(80px + env(safe-area-inset-bottom));
           }
         }
-
         @media (max-width: 768px) {
-          .price-grid-section {
-            padding: 32px 0 60px;
-          }
-
-          @supports (padding-bottom: env(safe-area-inset-bottom)) {
-            .price-grid-section {
-              padding-bottom: calc(60px + env(safe-area-inset-bottom));
-            }
-          }
+          .price-grid-section { padding: 32px 0 60px; }
         }
-
         .price-result-count {
           font-family: var(--font-body);
           font-size: 13px;
@@ -250,12 +198,6 @@ export default async function PriceListingPage({
           color: var(--color-ink-tertiary);
           margin: 0 0 24px;
         }
-
-        /*
-         * LP-07 FIX: max-width + overflow on badge.
-         * Prevents the monospace price range badge from overflowing
-         * on narrow screens where long price strings might clip.
-         */
         .price-range-badge {
           display: inline-flex;
           align-items: center;
@@ -275,12 +217,6 @@ export default async function PriceListingPage({
           text-overflow: ellipsis;
           white-space: nowrap;
         }
-
-        /*
-         * LP-07 FIX: Adjusted breakpoint from 480px to 640px.
-         * The price context block clips on mid-size Android phones
-         * (540px–640px) — hiding it earlier preserves the layout.
-         */
         .price-context-block {
           display: flex;
           align-items: center;
@@ -292,20 +228,15 @@ export default async function PriceListingPage({
           margin-top: 20px;
           overflow: hidden;
         }
-
         @media (max-width: 640px) {
-          .price-context-block {
-            display: none;
-          }
+          .price-context-block { display: none; }
         }
-
         .price-context-item {
           display: flex;
           flex-direction: column;
           gap: 2px;
           min-width: 0;
         }
-
         .price-context-label {
           font-family: var(--font-body);
           font-size: 11px;
@@ -315,7 +246,6 @@ export default async function PriceListingPage({
           color: var(--color-ink-tertiary);
           white-space: nowrap;
         }
-
         .price-context-value {
           font-family: var(--font-mono);
           font-size: 14px;
@@ -324,11 +254,6 @@ export default async function PriceListingPage({
           letter-spacing: -0.01em;
           white-space: nowrap;
         }
-
-        /*
-         * LP-07 FIX: flex-shrink: 0 prevents dividers from
-         * collapsing when the context block is narrow.
-         */
         .price-context-divider {
           width: 1px;
           height: 32px;
@@ -367,10 +292,6 @@ export default async function PriceListingPage({
               {rangeDef.pageTitle}
             </h1>
 
-            {/*
-             * LP-07 FIX: aria-live removed from header count.
-             * Single aria-live on the grid result count below.
-             */}
             <p
               style={{
                 fontFamily: 'var(--font-body)',
@@ -380,7 +301,8 @@ export default async function PriceListingPage({
                 margin: 0,
               }}
             >
-              {bikes.length} motorcycle{bikes.length !== 1 ? 's' : ''} available
+              {bikes.length} motorcycle{bikes.length !== 1 ? 's' : ''}{' '}
+              available
             </p>
 
             <div
@@ -393,9 +315,7 @@ export default async function PriceListingPage({
                   {formatPriceInLakhs(rangeDef.minPrice)}
                 </span>
               </div>
-
               <div className="price-context-divider" />
-
               <div className="price-context-item">
                 <span className="price-context-label">
                   {isPriceOpenEnded ? 'Upper Limit' : 'Up To'}
@@ -406,9 +326,7 @@ export default async function PriceListingPage({
                     : formatPriceInLakhs(rangeDef.maxPrice)}
                 </span>
               </div>
-
               <div className="price-context-divider" />
-
               <div className="price-context-item">
                 <span className="price-context-label">Price Type</span>
                 <span
