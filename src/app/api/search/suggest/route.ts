@@ -129,7 +129,7 @@ export async function GET(
       const results = await Bike.aggregate<AtlasAggregateSearchResult>(
         pipeline,
       )
-
+      console.log("Atlas Results:", results)
       if (process.env.NODE_ENV === 'development' && results.length > 0) {
         console.log(
           `[/api/search/suggest] Atlas Search: "${sanitised}" → ${results.length} results`,
@@ -146,6 +146,7 @@ export async function GET(
        */
       suggestions = mapToSearchSuggestions(results)
     } catch (atlasError) {
+      console.error("Atlas Error:", atlasError)
       /*
        * Atlas Search failed — likely because:
        *   1. The 'bikes_search' index has not been created in Atlas UI yet
@@ -179,7 +180,8 @@ export async function GET(
           .select('slug brandSlug brandName name category heroImageUrl')
           .limit(MAX_SUGGESTIONS)
           .lean<AtlasAggregateSearchResult[]>()
-           
+        console.log("FILTER:", filter)   
+        console.log("Fallback Results:", fallbackResults)
         suggestions = mapToSearchSuggestions(fallbackResults)
 
         if (

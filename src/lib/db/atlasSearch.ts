@@ -369,6 +369,7 @@ export function mapToSearchSuggestions(
  * while the Atlas Search index is being created or is temporarily unavailable.
  */
 export function buildFallbackRegexFilter(query: string): object {
+  console.log("Fallback Query:", query)
   const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const regex = new RegExp(escapedQuery, 'i')
 
