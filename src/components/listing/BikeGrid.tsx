@@ -311,25 +311,24 @@ export default function BikeGrid({
         </div>
       )}
 
-      {/* ── Loaded state — real BikeCard grid ───────────────────── */}
-      {!loading && bikes.length > 0 && (
-        <div className={`bike-grid ${className}`}>
-          {bikes.map((bike, index) => (
-            <BikeCard
-              key={bike._id}
-              bike={bike}
-              variant={variant}
-              accentColor={getAccentColor(bike.brandSlug)}
-              /*
-               * First card gets priority — it is the LCP image candidate
-               * on listing pages (above the fold in a 3-column grid).
-               * All subsequent cards are lazy-loaded.
-               */
-              priority={firstCardPriority && index === 0}
-            />
-          ))}
-        </div>
-      )}
+    {/* ── Loaded state — real BikeCard grid ───────────────────── */}
+{!loading && bikes.length > 0 && (
+  <div className={`bike-grid ${className}`}>
+    {bikes.map((bike, index) => {
+      const bikeData = JSON.parse(JSON.stringify(bike))
+
+      return (
+        <BikeCard
+          key={bikeData._id}
+          bike={bikeData}
+          variant={variant}
+          accentColor={getAccentColor(bikeData.brandSlug)}
+          priority={firstCardPriority && index === 0}
+        />
+      )
+    })}
+  </div>
+)}
     </>
   )
 }

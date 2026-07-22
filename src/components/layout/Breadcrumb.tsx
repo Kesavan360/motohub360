@@ -1,3 +1,4 @@
+"use client"
 /*
  * Breadcrumb — 3-level site navigation breadcrumb.
  *
