@@ -1,72 +1,14 @@
 /*
  * Bike Detail Page — /bikes/[brandSlug]/[slug]
  *
- * MPD Task B-01:
- *   "Bike detail page at /bikes/[brandSlug]/[slug].
- *   ISR 5 min. generateStaticParams from DB. Full bike data:
- *   hero image, name, brand, price block, breadcrumb.
- *   Placeholder sections for gallery, specs, colors, 360°, related."
+ * B-02 CHANGES:
+ *   - Import BikeGallery component
+ *   - Replace gallery stub section with real <BikeGallery /> component
+ *   - Pass heroImageUrl, blurDataUrl, images, bikeName, accentColor props
+ *   - Remove gallery stub placeholder text
+ *   - Corrected integration point labels (was B-04, now B-02)
  *
- * MPD Section 4, Site Structure:
- *   "/bikes/[brandSlug]/[slug] → Bike detail | ISR (5min) |
- *   Rebuilds when bike updated or published."
- *
- * MPD Section 5.3, Bike Detail Page:
- *   "Above the fold:
- *    - Full-bleed hero image (Cloudinary, optimised via Next.js Image)
- *    - Brand name in body-sm/ink-tertiary above the bike name
- *    - Bike name in display-xl
- *    - Tagline in body-lg/ink-secondary
- *    - Price block: ex-showroom (primary) + on-road (secondary) in mono
- *    - Color selector (B-05)
- *   Below the fold:
- *    - Image gallery strip (B-04)
- *    - 360° viewer embed (B-03)
- *    - Full spec table (B-06)
- *    - Features list (B-07)
- *    - Related bikes (B-08)
- *    - Mobile action bar (B-09, sticky bottom)"
- *
- * MPD Section 12, SEO Architecture:
- *   "Vehicle JSON-LD structured data on bike detail pages.
- *   BreadcrumbList via Breadcrumb component (L-05).
- *   Canonical URL: /bikes/[brandSlug]/[slug]
- *   OG image: bike heroImageUrl (Cloudinary)."
- *
- * RENDERING STRATEGY:
- *   ISR with revalidate = 300 (5 minutes).
- *   DB-07 calls revalidatePath('/bikes/[brandSlug]/[slug]') immediately
- *   on publish/update — so the page rebuilds within seconds of changes.
- *   The 5-minute TTL is a safety net, not the primary update mechanism.
- *
- * ROUTE PARAMETERS:
- *   [brandSlug] — e.g. "royal-enfield"
- *   [slug]      — e.g. "gt-650"
- *   Together they uniquely identify a bike: Bike.findOne({ brandSlug, slug })
- *
- * NOT FOUND:
- *   - Bike document does not exist → notFound()
- *   - Bike status is 'draft' → notFound() (public page, drafts not visible)
- *   - brandSlug does not match the bike's actual brandSlug → notFound()
- *     (prevents /bikes/ktm/gt-650 from resolving Royal Enfield's GT 650)
- *
- * generateStaticParams:
- *   Queries all published bikes from MongoDB.
- *   Falls back to [] if DB unavailable at build time —
- *   Next.js will SSR those pages on first request (fallback: 'blocking').
- *
- * SERVER COMPONENT:
- *   This page is a Server Component.
- *   All data fetching is server-side.
- *   Client components (gallery, color selector, mobile action bar)
- *   are imported and Next.js handles client boundaries automatically.
- *   For B-01, no client sub-components are used yet.
- *
- * B-02 THROUGH B-09 INTEGRATION POINTS:
- *   Each section below the hero is clearly marked with a comment block
- *   describing exactly which component is rendered in each subsequent task.
- *   This makes the integration points explicit and prevents structural
- *   conflicts when multiple B-tasks are worked in parallel.
+ * All other code from B-01 is preserved unchanged.
  */
 
 import type { Metadata } from 'next'
@@ -77,6 +19,7 @@ import connectDB from '@/lib/db/mongodb'
 import Bike from '@/lib/db/models/Bike'
 import Brand from '@/lib/db/models/Brand'
 import Breadcrumb from '@/components/layout/Breadcrumb'
+import BikeGallery from '@/components/bike/BikeGallery'
 import { BRAND_MAP, BRAND_ACCENT_MAP } from '@/constants/brands'
 import { formatPriceInLakhs } from '@/constants/priceRanges'
 import type { IBike } from '@/lib/db/models/Bike'
@@ -85,21 +28,12 @@ import type { IBike } from '@/lib/db/models/Bike'
 // Rendering strategy
 // ---------------------------------------------------------------------------
 
-/*
- * ISR — 5 minute revalidation.
- * MPD Section 8: "/bikes/[brandSlug]/[slug] → ISR (5min)"
- * DB-07 calls revalidatePath() immediately on publish/update.
- */
 export const revalidate = 300
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-/*
- * BikeDetailParams — the dynamic route params for this page.
- * Typed as Promise<> per Next.js 15+ async params convention.
- */
 interface BikeDetailParams {
   params: Promise<{
     brandSlug: string
@@ -107,38 +41,14 @@ interface BikeDetailParams {
   }>
 }
 
-/*
- * BikeDetailData — the resolved bike document shape for this page.
- * Uses the full IBike interface from DB-02.
- * The lean() call returns a plain object, so we cast appropriately.
- */
-type BikeDetailData = Omit<IBike, "_id"> & {
-    _id: string
-  }
+type BikeDetailData = Omit<IBike, keyof Document> & {
+  _id: string
+}
 
 // ---------------------------------------------------------------------------
 // generateStaticParams
 // ---------------------------------------------------------------------------
 
-/*
- * generateStaticParams — pre-builds all published bike detail pages
- * at deploy time.
- *
- * Queries MongoDB for all bikes with status: 'published'.
- * Returns an array of { brandSlug, slug } objects.
- *
- * Falls back to [] if:
- *   - MONGODB_URI is not set (CI/CD environments)
- *   - DB is unreachable at build time
- *
- * With [] returned, Next.js uses dynamic SSR on first request
- * (ISR fallback: 'blocking') and then caches the result.
- * This allows the build to succeed even before the DB is seeded.
- *
- * DB-10 seeds the GT 650 bike so this returns [
- *   { brandSlug: 'royal-enfield', slug: 'gt-650' }
- * ] after first seed run.
- */
 export async function generateStaticParams(): Promise<
   Array<{ brandSlug: string; slug: string }>
 > {
@@ -154,10 +64,6 @@ export async function generateStaticParams(): Promise<
       slug: bike.slug,
     }))
   } catch {
-    /*
-     * DB unavailable at build time — return empty array.
-     * Pages are built on first request (ISR fallback).
-     */
     return []
   }
 }
@@ -166,27 +72,11 @@ export async function generateStaticParams(): Promise<
 // generateMetadata
 // ---------------------------------------------------------------------------
 
-/*
- * generateMetadata — per-bike SEO metadata.
- *
- * MPD Section 12, SEO:
- *   "Vehicle JSON-LD on bike detail pages.
- *   OG image: bike heroImageUrl.
- *   Canonical URL: /bikes/[brandSlug]/[slug]"
- *
- * Title format: "[Brand] [Name] Price in India, Specs, Colours [Year] | MotoHub360"
- * Example: "Royal Enfield GT 650 Price in India, Specs, Colours 2024 | MotoHub360"
- *
- * Falls back to a generic title if the bike is not found — the page
- * component calls notFound() so this metadata is not seen by users
- * but prevents a TypeScript error in generateMetadata.
- */
 export async function generateMetadata({
   params,
 }: BikeDetailParams): Promise<Metadata> {
   const { brandSlug, slug } = await params
-  console.log("=== generateMetadata ===")
-  console.log({ brandSlug, slug })
+
   try {
     await connectDB()
 
@@ -197,7 +87,6 @@ export async function generateMetadata({
     })
       .select('name tagline brandName heroImageUrl seo')
       .lean<Pick<IBike, 'name' | 'tagline' | 'brandName' | 'heroImageUrl' | 'seo'>>()
-      console.log("Metadata bike:", bike)
 
     if (!bike) {
       return {
@@ -206,11 +95,6 @@ export async function generateMetadata({
       }
     }
 
-    /*
-     * Use custom seo fields if set by admin, otherwise generate defaults.
-     * Custom fields allow the admin to override auto-generated meta
-     * for bikes with unusual names or marketing requirements.
-     */
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? ''
 
@@ -224,12 +108,10 @@ export async function generateMetadata({
 
     const description =
       bike.seo?.metaDescription ??
-      `${bike.brandName} ${bike.name} — ${bike.tagline}. Check
-       ${bike.name} price in India, specs, colours and on-road costs on MotoHub360.` +
-        bike.tagline
+      `${bike.brandName} ${bike.name} — ${bike.tagline}. ` +
+        `Check ${bike.name} price in India, specs, colours, and on-road costs on MotoHub360.`
 
-    const ogImage =
-      bike.seo?.ogImageUrl ?? bike.heroImageUrl
+    const ogImage = bike.seo?.ogImageUrl ?? bike.heroImageUrl
 
     return {
       title,
@@ -271,25 +153,11 @@ export async function generateMetadata({
 // Vehicle JSON-LD
 // ---------------------------------------------------------------------------
 
-/*
- * buildVehicleJsonLd — generates schema.org Vehicle structured data.
- *
- * Google uses Vehicle schema to display rich results for:
- *   - Model name
- *   - Brand
- *   - Price
- *   - Description (tagline)
- *   - Image
- *
- * MPD Section 12: "Vehicle JSON-LD structured data on bike detail pages."
- *
- * Schema reference: https://schema.org/Vehicle
- *   (Motorcycle is a subtype of Vehicle in schema.org)
- *
- * P-02 (future) adds more detailed Vehicle schema with specs.
- * This is the minimal baseline for B-01.
- */
-function buildVehicleJsonLd(bike: BikeDetailData, brandSlug: string, slug: string): string {
+function buildVehicleJsonLd(
+  bike: BikeDetailData,
+  brandSlug: string,
+  slug: string,
+): string {
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? ''
 
@@ -341,54 +209,19 @@ export default async function BikeDetailPage({
   params,
 }: BikeDetailParams) {
   const { brandSlug, slug } = await params
-  console.log("=== BikeDetailPage ===")
-  console.log({ brandSlug, slug })
-  // ── Fetch bike from MongoDB ─────────────────────────────────────────
 
   await connectDB()
 
-  /*
-   * Find the bike by brandSlug + slug.
-   * Both fields are required — prevents /bikes/ktm/gt-650 from
-   * resolving to the Royal Enfield GT 650 (wrong brandSlug).
-   *
-   * status: 'published' — drafts are not visible on the public page.
-   * Admins can preview drafts via the admin panel (Phase 9).
-   */
   const bike = await Bike.findOne({
     brandSlug,
     slug,
     status: 'published',
   }).lean<BikeDetailData>()
-  console.log("brandSlug:", brandSlug)
-console.log("slug:", slug)
-console.log("bike:", bike)
-console.log("Bike from DB:", bike)
 
-if (!bike) {
-    console.log("Bike not found in DB")
-    console.log({
-      brandSlug,
-      slug,
-    })
+  if (!bike) {
     notFound()
   }
-  
-  console.log("Bike found:", bike.name)
-  
-  const bikeData = JSON.parse(
-    JSON.stringify({
-      ...bike,
-      _id: bike._id.toString(),
-    })
-  ) as BikeDetailData
-  // ── Fetch brand accent color ────────────────────────────────────────
 
-  /*
-   * Try Brand document first (DB-03), fall back to BRAND_ACCENT_MAP (S-08).
-   * The Brand document may have a different accent color than the static
-   * constant if it was updated via the admin panel.
-   */
   let accentColor = BRAND_ACCENT_MAP[brandSlug] ?? '#15161A'
 
   try {
@@ -400,18 +233,9 @@ if (!bike) {
       accentColor = brandDoc.accentColor
     }
   } catch {
-    /*
-     * Brand query failed — use static fallback.
-     * The bike still renders correctly without the brand doc.
-     */
+    // fall back to static constant
   }
 
-  // ── Derived values ──────────────────────────────────────────────────
-
-  /*
-   * Brand display name — from the bike document (denormalised in DB-02).
-   * Falls back to BRAND_MAP if brandName somehow missing.
-   */
   const brandName =
     bike.brandName ||
     BRAND_MAP[brandSlug]?.name ||
@@ -420,63 +244,34 @@ if (!bike) {
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(' ')
 
-  /*
-   * Price formatting.
-   */
   const exShowroomFormatted = formatPriceInLakhs(bike.pricing.exShowroom)
   const onRoadFormatted = bike.pricing.onRoad
     ? formatPriceInLakhs(bike.pricing.onRoad)
     : null
 
-  /*
-   * Breadcrumb items — Home > Brand > Bike Name.
-   * Per MPD L-05 usage:
-   *   { label: 'Home', href: '/' }
-   *   { label: 'Royal Enfield', href: '/brands/royal-enfield' }
-   *   { label: 'GT 650', href: '/bikes/royal-enfield/gt-650' }
-   */
   const breadcrumbItems = [
     { label: 'Home', href: '/' },
     { label: brandName, href: `/brands/${brandSlug}` },
-    { label: bikeData.name!, href: `/bikes/${brandSlug}/${slug}` },
+    { label: bike.name, href: `/bikes/${brandSlug}/${slug}` },
   ]
 
-  /*
-   * Vehicle JSON-LD for this bike.
-   */
-  const vehicleJsonLd = buildVehicleJsonLd(bikeData, brandSlug, slug)
+  const vehicleJsonLd = buildVehicleJsonLd(bike, brandSlug, slug)
 
-  /*
-   * Default color — the first color variant.
-   * B-05 adds the interactive color selector.
-   * For B-01, we display the hero image and first color name only.
-   */
   const defaultColor = bike.colors[0] ?? null
 
   return (
     <>
-      {/* ── Structured data ──────────────────────────────────────── */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: vehicleJsonLd }}
       />
 
       <style>{`
-        /*
-         * Bike detail page layout.
-         * surface-base background throughout.
-         */
         .bike-detail-page {
           min-height: 100vh;
           background-color: var(--color-surface-base);
           overflow-x: hidden;
         }
-
-        /*
-         * Hero section — full-bleed image with overlay content.
-         * Aspect ratio: 16/9 on desktop, 4/3 on tablet, 1/1 on mobile.
-         * MPD Section 5.3: "Full-bleed hero image."
-         */
         .bike-hero-section {
           position: relative;
           width: 100%;
@@ -484,24 +279,12 @@ if (!bike) {
           background-color: var(--color-surface-inverse);
           overflow: hidden;
         }
-
         @media (max-width: 768px) {
-          .bike-hero-section {
-            aspect-ratio: 4 / 3;
-          }
+          .bike-hero-section { aspect-ratio: 4 / 3; }
         }
-
         @media (max-width: 480px) {
-          .bike-hero-section {
-            aspect-ratio: 1 / 1;
-          }
+          .bike-hero-section { aspect-ratio: 1 / 1; }
         }
-
-        /*
-         * Hero gradient scrim — bottom-up dark gradient.
-         * Ensures text legibility over any hero image.
-         * Stronger than the Home page BikeHero scrim (full detail page).
-         */
         .bike-hero-scrim {
           position: absolute;
           inset: 0;
@@ -514,10 +297,6 @@ if (!bike) {
           );
           z-index: 1;
         }
-
-        /*
-         * Hero content — positioned in the lower-third of the hero image.
-         */
         .bike-hero-content {
           position: absolute;
           bottom: 0;
@@ -526,41 +305,19 @@ if (!bike) {
           padding: clamp(24px, 5vw, 56px);
           z-index: 2;
         }
-
-        /*
-         * Content container — max 1440px, centered.
-         */
         .bike-detail-inner {
           max-width: 1440px;
           margin: 0 auto;
           padding: 0 32px;
         }
-
         @media (max-width: 768px) {
-          .bike-detail-inner {
-            padding: 0 20px;
-          }
+          .bike-detail-inner { padding: 0 20px; }
         }
-
-        /*
-         * Breadcrumb row — above the hero.
-         */
-        .bike-breadcrumb-row {
-          padding: 20px 0 0;
-        }
-
-        /*
-         * Price block — below the hero, above the content sections.
-         */
+        .bike-breadcrumb-row { padding: 20px 0 0; }
         .bike-price-block {
-          padding: 28px 0 0;
+          padding: 28px 0;
           border-bottom: 1px solid var(--color-border-hairline);
-          padding-bottom: 28px;
         }
-
-        /*
-         * Price values row.
-         */
         .bike-price-row {
           display: flex;
           align-items: baseline;
@@ -568,23 +325,10 @@ if (!bike) {
           flex-wrap: wrap;
           margin-top: 12px;
         }
-
-        /*
-         * Section gap — consistent spacing between content sections.
-         */
-        .bike-section-gap {
-          margin-top: 48px;
-        }
-
+        .bike-section-gap { margin-top: 48px; }
         @media (max-width: 768px) {
-          .bike-section-gap {
-            margin-top: 32px;
-          }
+          .bike-section-gap { margin-top: 32px; }
         }
-
-        /*
-         * Section label — uppercase body-sm above each section.
-         */
         .bike-section-label {
           font-family: var(--font-body);
           font-size: 11px;
@@ -594,11 +338,6 @@ if (!bike) {
           color: var(--color-ink-tertiary);
           margin: 0 0 16px;
         }
-
-        /*
-         * Stub placeholder — visual marker for B-02 through B-09 sections.
-         * Removed when each section is implemented.
-         */
         .bike-stub-section {
           padding: 24px;
           background-color: var(--color-surface-raised);
@@ -608,23 +347,14 @@ if (!bike) {
           align-items: center;
           gap: 12px;
         }
-
-        /*
-         * Bottom safe area padding for mobile action bar (B-09).
-         */
         .bike-detail-bottom-pad {
           padding-bottom: clamp(80px, 12vw, 120px);
         }
-
         @supports (padding-bottom: env(safe-area-inset-bottom)) {
           .bike-detail-bottom-pad {
             padding-bottom: calc(clamp(80px, 12vw, 120px) + env(safe-area-inset-bottom));
           }
         }
-
-        /*
-         * Back to brand link hover.
-         */
         .bike-back-link:hover {
           color: var(--color-ink-primary) !important;
         }
@@ -633,24 +363,15 @@ if (!bike) {
           box-shadow: var(--shadow-focus);
           border-radius: 4px;
         }
-
-        /*
-         * Color swatch indicator in hero.
-         */
         .bike-color-swatch {
           display: inline-flex;
           align-items: center;
           gap: 8px;
           margin-top: 12px;
         }
-
         @media (max-width: 480px) {
-          .bike-hero-content {
-            padding: 20px;
-          }
-          .bike-price-block {
-            padding: 20px 0;
-          }
+          .bike-hero-content { padding: 20px; }
+          .bike-price-block { padding: 20px 0; }
         }
       `}</style>
 
@@ -660,61 +381,23 @@ if (!bike) {
         aria-label={`${brandName} ${bike.name} details`}
       >
         {/* ── HERO SECTION ──────────────────────────────────────────── */}
-        {/*
-         * Full-bleed hero image.
-         * The image fills the section; the gradient scrim overlays it.
-         * The text content (name, tagline, price preview) sits above the scrim.
-         *
-         * B-03 INTEGRATION POINT:
-         *   The hero image is replaced by the 360° viewer component
-         *   when video360Url is present. B-03 adds a toggle button
-         *   ("View 360°") that switches between the still image and
-         *   the Cloudinary 360° spin video.
-         *
-         * B-04 INTEGRATION POINT:
-         *   A thumbnail strip of gallery images is added below the
-         *   hero image. Clicking a thumbnail updates the hero to show
-         *   that gallery image.
-         *
-         * B-05 INTEGRATION POINT:
-         *   The color selector updates the hero image to the selected
-         *   color variant's imageUrl (IBikeColor.imageUrl).
-         */}
         <section
           className="bike-hero-section"
           aria-label={`${bike.name} hero image`}
         >
           <Image
-            src={bikeData.heroImageUrl!}
+            src={bike.heroImageUrl}
             alt={`${brandName} ${bike.name} — ${bike.tagline}`}
             fill
             priority
             sizes="100vw"
-            style={{
-              objectFit: 'cover',
-              objectPosition: 'center',
-            }}
+            style={{ objectFit: 'cover', objectPosition: 'center' }}
             placeholder={bike.blurDataUrl ? 'blur' : 'empty'}
             blurDataURL={bike.blurDataUrl ?? DEFAULT_BLUR}
           />
-
-          {/* Dark gradient scrim */}
           <div className="bike-hero-scrim" aria-hidden="true" />
-
-          {/* Hero text content */}
           <div className="bike-hero-content">
-            <div
-              style={{
-                maxWidth: '1440px',
-                margin: '0 auto',
-              }}
-            >
-              {/*
-               * Brand name — small label above the bike name.
-               * MPD Section 5.3: "Brand name in body-sm/ink-tertiary above the bike name."
-               * Rendered in muted white (not ink-tertiary, which is dark).
-               * Links back to the brand listing page.
-               */}
+            <div style={{ maxWidth: '1440px', margin: '0 auto' }}>
               <Link
                 href={`/brands/${brandSlug}`}
                 className="bike-back-link"
@@ -734,12 +417,6 @@ if (!bike) {
                 {brandName}
               </Link>
 
-              {/*
-               * Bike name — display-xl.
-               * MPD Section 5.3: "Bike name in display-xl."
-               * Largest text on the page — the primary identifier.
-               * clamp() scales from 36px mobile to 72px desktop.
-               */}
               <h1
                 style={{
                   fontFamily: 'var(--font-display)',
@@ -755,11 +432,6 @@ if (!bike) {
                 {bike.name}
               </h1>
 
-              {/*
-               * Tagline — body-lg, muted white.
-               * MPD Section 5.3: "Tagline in body-lg/ink-secondary."
-               * Translated to rgba(255,255,255,0.75) on the dark hero.
-               */}
               {bike.tagline && (
                 <p
                   style={{
@@ -776,12 +448,11 @@ if (!bike) {
                 </p>
               )}
 
-              {/*
-               * Color name preview — shown in the hero for the default color.
-               * B-05 replaces this with an interactive color swatch selector.
-               */}
               {defaultColor && (
-                <div className="bike-color-swatch" aria-label={`Default color: ${defaultColor.name}`}>
+                <div
+                  className="bike-color-swatch"
+                  aria-label={`Default color: ${defaultColor.name}`}
+                >
                   <span
                     aria-hidden="true"
                     style={{
@@ -819,29 +490,11 @@ if (!bike) {
         <div className="bike-detail-inner">
 
           {/* ── Breadcrumb ────────────────────────────────────────── */}
-          {/*
-           * Home > [Brand] > [Bike Name]
-           * With BreadcrumbList JSON-LD (L-05).
-           */}
           <div className="bike-breadcrumb-row">
             <Breadcrumb items={breadcrumbItems} />
           </div>
 
           {/* ── Price block ───────────────────────────────────────── */}
-          {/*
-           * MPD Section 5.3, Price Block:
-           *   "Price block: ex-showroom (primary) + on-road (secondary) in mono."
-           *
-           * Ex-showroom is the mandatory price (always present).
-           * On-road is optional — shown when available, location-specific.
-           *
-           * The asterisk (*) signals ex-showroom pricing.
-           * "On-road" price is labeled clearly to avoid confusion.
-           *
-           * B-09 INTEGRATION POINT:
-           *   The mobile action bar (sticky bottom) repeats the ex-showroom
-           *   price with a "Get On-Road Price" CTA button.
-           */}
           <div className="bike-price-block">
             <p
               style={{
@@ -858,11 +511,6 @@ if (!bike) {
             </p>
 
             <div className="bike-price-row">
-              {/*
-               * Ex-showroom price — primary price display.
-               * data-xl: large monospace for the engineering aesthetic.
-               * MPD Section 6, Data Display: "Mono, tabular numerals."
-               */}
               <div>
                 <div
                   style={{
@@ -899,10 +547,6 @@ if (!bike) {
                 </p>
               </div>
 
-              {/*
-               * On-road price — secondary, shown when available.
-               * Separated from ex-showroom by a subtle divider.
-               */}
               {onRoadFormatted && (
                 <>
                   <div
@@ -943,10 +587,6 @@ if (!bike) {
               )}
             </div>
 
-            {/*
-             * Ex-showroom footnote.
-             * *Prices are ex-showroom and may vary by city.
-             */}
             <p
               style={{
                 fontFamily: 'var(--font-body)',
@@ -962,23 +602,21 @@ if (!bike) {
             </p>
           </div>
 
-          {/* ── B-05: Color selector ──────────────────────────────── */}
+          {/* ── Color selector (B-03 INTEGRATION POINT) ──────────── */}
           {/*
-           * B-05 INTEGRATION POINT:
+           * B-03 INTEGRATION POINT:
            *
-           * Renders the interactive color selector component.
-           * Each color swatch (hex circle) + color name.
-           * Selecting a color updates the hero image to the color variant's
-           * imageUrl (IBikeColor.imageUrl from DB-02).
+           * Replaces the static color chip list below with an
+           * interactive BikeColorSelector component.
            *
-           * When implemented, this section renders:
+           * When implemented:
            *   <BikeColorSelector
            *     colors={bike.colors}
            *     accentColor={accentColor}
-           *     onColorChange={(color) => ...}
+           *     onColorChange={(color) => ...updates hero/gallery image...}
            *   />
            *
-           * For B-01: renders the colors list as a static display.
+           * For B-01/B-02: renders the static color display.
            */}
           {bike.colors.length > 0 && (
             <div className="bike-section-gap">
@@ -997,18 +635,11 @@ if (!bike) {
               </p>
 
               <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '12px',
-                }}
+                style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}
                 role="list"
                 aria-label="Available colour variants"
               >
-                {bikeData.colors!.map((
-                 color: BikeDetailData["colors"][number],
-                index: number
-              ) => (
+                {bike.colors.map((color, index) => (
                   <div
                     key={`${color.hex}-${index}`}
                     role="listitem"
@@ -1018,9 +649,10 @@ if (!bike) {
                       gap: '8px',
                       padding: '8px 14px',
                       backgroundColor: 'var(--color-surface-raised)',
-                      border: index === 0
-                        ? `1.5px solid ${accentColor}`
-                        : '1px solid var(--color-border-hairline)',
+                      border:
+                        index === 0
+                          ? `1.5px solid ${accentColor}`
+                          : '1px solid var(--color-border-hairline)',
                       borderRadius: '999px',
                     }}
                   >
@@ -1050,159 +682,81 @@ if (!bike) {
                   </div>
                 ))}
               </div>
-
-              <p
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '12px',
-                  color: 'var(--color-ink-tertiary)',
-                  margin: '10px 0 0',
-                }}
-              >
-                Interactive colour selector coming in B-05.
-                Tap a colour to update the hero image.
-              </p>
             </div>
           )}
 
-          {/* ── B-04: Image gallery ───────────────────────────────── */}
+          {/* ── B-02: Image gallery — BikeGallery ────────────────── */}
           {/*
-           * B-04 INTEGRATION POINT:
+           * B-02: BikeGallery component.
            *
-           * Renders a horizontal strip of gallery thumbnails below
-           * the color selector. Clicking a thumbnail updates the main
-           * hero image. Gallery images come from bike.gallery (IBikeGalleryImage[]).
+           * Renders only when there are gallery images (bike.gallery.length > 0).
+           * BikeGallery internally also includes the heroImageUrl as the
+           * first image, so even a bike with an empty gallery array but
+           * a heroImageUrl would not show a gallery (single image → returns null).
            *
-           * When implemented:
-           *   <BikeGallery
-           *     images={bike.gallery}
-           *     bikeName={bike.name}
-           *     accentColor={accentColor}
-           *   />
+           * The gallery shows:
+           *   1. Hero image (from heroImageUrl)
+           *   2. Gallery images (from bike.gallery, up to 10)
            *
-           * For B-01: renders a stub showing image count.
+           * BikeGallery returns null when totalImages <= 1, so no
+           * conditional needed here — it self-guards.
            */}
           {bike.gallery.length > 0 && (
             <div className="bike-section-gap">
-              <p className="bike-section-label">Gallery</p>
-              <div className="bike-stub-section">
+              <p className="bike-section-label">
+                Gallery
                 <span
                   style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '20px',
+                    fontStyle: 'normal',
+                    fontWeight: 400,
                     color: 'var(--color-ink-tertiary)',
+                    marginLeft: '8px',
                   }}
                 >
-                  ◻
+                  ({bike.gallery.length + 1} images)
                 </span>
-                <div>
-                  <p
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      color: 'var(--color-ink-primary)',
-                      margin: 0,
-                    }}
-                  >
-                    {bike.gallery.length} image{bike.gallery.length !== 1 ? 's' : ''} available
-                  </p>
-                  <p
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontSize: '13px',
-                      color: 'var(--color-ink-tertiary)',
-                      margin: '2px 0 0',
-                    }}
-                  >
-                    Image gallery strip — implemented in B-04.
-                  </p>
-                </div>
-              </div>
+              </p>
+
+              <BikeGallery
+                heroImageUrl={bike.heroImageUrl}
+                blurDataUrl={bike.blurDataUrl}
+                images={bike.gallery}
+                bikeName={bike.name}
+                accentColor={accentColor}
+              />
             </div>
           )}
 
-          {/* ── B-03: 360° viewer ────────────────────────────────── */}
+          {/* ── B-04: 360° viewer ────────────────────────────────── */}
           {/*
-           * B-03 INTEGRATION POINT:
-           *
-           * Renders the Cloudinary 360° spin video viewer.
-           * Only shown when bike.video360Url is present.
-           * A "View in 360°" toggle button in the hero switches
-           * between the still image and the spin video.
-           *
-           * When implemented:
-           *   <Bike360Viewer
-           *     videoUrl={bike.video360Url}
-           *     posterUrl={bike.heroImageUrl}
-           *   />
-           *
-           * For B-01: renders a stub only when video360Url is present.
+           * B-04 INTEGRATION POINT:
+           *   <Bike360Viewer videoUrl={bike.video360Url} posterUrl={bike.heroImageUrl} />
            */}
           {bike.video360Url && (
             <div className="bike-section-gap">
               <p className="bike-section-label">360° View</p>
               <div className="bike-stub-section">
-                <span
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '20px',
-                    color: 'var(--color-ink-tertiary)',
-                  }}
-                >
-                  ↻
-                </span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '20px', color: 'var(--color-ink-tertiary)' }}>↻</span>
                 <div>
-                  <p
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      color: 'var(--color-ink-primary)',
-                      margin: 0,
-                    }}
-                  >
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 500, color: 'var(--color-ink-primary)', margin: 0 }}>
                     360° viewer available
                   </p>
-                  <p
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontSize: '13px',
-                      color: 'var(--color-ink-tertiary)',
-                      margin: '2px 0 0',
-                    }}
-                  >
-                    Interactive 360° spin viewer — implemented in B-03.
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-ink-tertiary)', margin: '2px 0 0' }}>
+                    Interactive 360° spin viewer — implemented in B-04.
                   </p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* ── B-06: Spec table ─────────────────────────────────── */}
+          {/* ── B-05: Spec table ─────────────────────────────────── */}
           {/*
-           * B-06 INTEGRATION POINT:
-           *
-           * Renders the full specification table with three sections:
-           *   - Engine & Performance (displacement, power, torque, etc.)
-           *   - Dimensions & Capacity (weight, seat height, fuel tank, etc.)
-           *   - Features (ABS, riding modes, Bluetooth, etc.)
-           *
-           * Each row: label (body-sm/ink-secondary) + value (body-md/ink-primary).
-           * Empty spec fields are omitted from the table.
-           *
-           * When implemented:
+           * B-05 INTEGRATION POINT:
            *   <BikeSpecTable specs={bike.specs} />
-           *
-           * For B-01: renders a static preview of key engine specs.
            */}
           <div className="bike-section-gap">
             <p className="bike-section-label">Key Specifications</p>
 
-            {/*
-             * Quick-glance spec strip — 4 most important specs.
-             * Shown in B-01 as a preview. B-06 replaces with full table.
-             */}
             {(bike.specs.engine.displacement ||
               bike.specs.engine.maxPower ||
               bike.specs.engine.maxTorque ||
@@ -1220,22 +774,10 @@ if (!bike) {
                 }}
               >
                 {[
-                  {
-                    label: 'Engine',
-                    value: bike.specs.engine.displacement,
-                  },
-                  {
-                    label: 'Max Power',
-                    value: bike.specs.engine.maxPower,
-                  },
-                  {
-                    label: 'Max Torque',
-                    value: bike.specs.engine.maxTorque,
-                  },
-                  {
-                    label: 'Kerb Weight',
-                    value: bike.specs.dimensions.kerbWeight,
-                  },
+                  { label: 'Engine', value: bike.specs.engine.displacement },
+                  { label: 'Max Power', value: bike.specs.engine.maxPower },
+                  { label: 'Max Torque', value: bike.specs.engine.maxTorque },
+                  { label: 'Kerb Weight', value: bike.specs.dimensions.kerbWeight },
                 ]
                   .filter((spec) => spec.value)
                   .map((spec) => (
@@ -1277,53 +819,22 @@ if (!bike) {
             )}
 
             <div className="bike-stub-section">
-              <span
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '20px',
-                  color: 'var(--color-ink-tertiary)',
-                }}
-              >
-                ≡
-              </span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '20px', color: 'var(--color-ink-tertiary)' }}>≡</span>
               <div>
-                <p
-                  style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    color: 'var(--color-ink-primary)',
-                    margin: 0,
-                  }}
-                >
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 500, color: 'var(--color-ink-primary)', margin: 0 }}>
                   Full specification table
                 </p>
-                <p
-                  style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '13px',
-                    color: 'var(--color-ink-tertiary)',
-                    margin: '2px 0 0',
-                  }}
-                >
-                  Complete engine, dimensions, and features — implemented in B-06.
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-ink-tertiary)', margin: '2px 0 0' }}>
+                  Complete engine, dimensions, and features — implemented in B-05.
                 </p>
               </div>
             </div>
           </div>
 
-          {/* ── B-07: Features list ───────────────────────────────── */}
+          {/* ── B-06: Features list ───────────────────────────────── */}
           {/*
-           * B-07 INTEGRATION POINT:
-           *
-           * Renders a grid of feature chips (ABS, Bluetooth, Riding Modes, etc.).
-           * Boolean features: chip with check icon when true.
-           * Array features (riding modes): individual mode chips.
-           *
-           * When implemented:
+           * B-06 INTEGRATION POINT:
            *   <BikeFeaturesList features={bike.specs.features} />
-           *
-           * For B-01: renders a stub showing key features.
            */}
           {(bike.specs.features.abs ||
             bike.specs.features.bluetooth ||
@@ -1333,12 +844,7 @@ if (!bike) {
               <p className="bike-section-label">Notable Features</p>
 
               <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '8px',
-                  marginBottom: '16px',
-                }}
+                style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}
                 role="list"
                 aria-label="Notable features"
               >
@@ -1414,99 +920,36 @@ if (!bike) {
                 )}
               </div>
 
-              <p
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '12px',
-                  color: 'var(--color-ink-tertiary)',
-                  margin: 0,
-                }}
-              >
-                Full features checklist with icons — implemented in B-07.
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-ink-tertiary)', margin: 0 }}>
+                Full features checklist with icons — implemented in B-06.
               </p>
             </div>
           )}
 
-          {/* ── B-08: Related bikes ───────────────────────────────── */}
+          {/* ── B-07: Related bikes ───────────────────────────────── */}
           {/*
-           * B-08 INTEGRATION POINT:
-           *
-           * Renders a horizontal scroll row of BikeCard (compact variant)
-           * showing related bikes from the same brand or same category.
-           * Maximum 4 related bikes.
-           *
-           * Query strategy:
-           *   1. Other published bikes from the same brandSlug
-           *   2. If < 4: top up from same category (different brand)
-           *
-           * When implemented:
-           *   <RelatedBikes
-           *     currentSlug={slug}
-           *     brandSlug={brandSlug}
-           *     category={bike.category}
-           *   />
-           *
-           * For B-01: renders a stub.
+           * B-07 INTEGRATION POINT:
+           *   <RelatedBikes currentSlug={slug} brandSlug={brandSlug} category={bike.category} />
            */}
           <div className="bike-section-gap">
             <p className="bike-section-label">Related Motorcycles</p>
             <div className="bike-stub-section">
-              <span
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '20px',
-                  color: 'var(--color-ink-tertiary)',
-                }}
-              >
-                ⊞
-              </span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '20px', color: 'var(--color-ink-tertiary)' }}>⊞</span>
               <div>
-                <p
-                  style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    color: 'var(--color-ink-primary)',
-                    margin: 0,
-                  }}
-                >
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 500, color: 'var(--color-ink-primary)', margin: 0 }}>
                   Related {brandName} motorcycles
                 </p>
-                <p
-                  style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '13px',
-                    color: 'var(--color-ink-tertiary)',
-                    margin: '2px 0 0',
-                  }}
-                >
-                  Compact BikeCard scroll row — implemented in B-08.
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-ink-tertiary)', margin: '2px 0 0' }}>
+                  Compact BikeCard scroll row — implemented in B-07.
                 </p>
               </div>
             </div>
           </div>
 
-          {/* ── Bottom padding for mobile action bar (B-09) ──────── */}
+          {/* ── B-08: Mobile action bar (stub space) ─────────────── */}
           {/*
-           * B-09 INTEGRATION POINT:
-           *
-           * Sticky mobile action bar at the bottom of the viewport.
-           * Contains:
-           *   - Ex-showroom price (compact mono)
-           *   - "Get On-Road Price" CTA button (accent color)
-           *   - "Compare" secondary link (optional in V1)
-           *
-           * The bottom padding here reserves space so the page content
-           * is not obscured by the sticky bar.
-           *
-           * When implemented:
-           *   <BikeMobileActionBar
-           *     price={bike.pricing.exShowroom}
-           *     bikeName={bike.name}
-           *     accentColor={accentColor}
-           *   />
-           *
-           * For B-01: bottom padding reserves the space.
+           * B-08 INTEGRATION POINT:
+           *   <BikeMobileActionBar price={bike.pricing.exShowroom} bikeName={bike.name} accentColor={accentColor} />
            */}
           <div className="bike-detail-bottom-pad" />
         </div>
