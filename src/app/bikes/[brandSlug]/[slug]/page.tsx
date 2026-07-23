@@ -1,14 +1,13 @@
 /*
  * Bike Detail Page — /bikes/[brandSlug]/[slug]
  *
- * B-03 CHANGES:
- *   - Import BikeColorSelector
- *   - Replace static color chip list with <BikeColorSelector />
- *   - Remove static color chip inline styles (now handled by component)
- *   - Updated B-03 stub comment to "IMPLEMENTED in B-03"
- *   - Remaining stubs (B-04 through B-08) unchanged
+ * B-04 CHANGES:
+ *   - Import Bike360Viewer
+ *   - Replace B-04 stub with <Bike360Viewer /> (only when video360Url exists)
+ *   - Updated B-04 stub comment to "IMPLEMENTED in B-04"
+ *   - Remaining stubs (B-05 through B-08) unchanged
  *
- * All other code from B-01/B-02 is preserved unchanged.
+ * All other code from B-01/B-02/B-03 is preserved unchanged.
  */
 
 import type { Metadata } from 'next'
@@ -21,6 +20,7 @@ import Brand from '@/lib/db/models/Brand'
 import Breadcrumb from '@/components/layout/Breadcrumb'
 import BikeGallery from '@/components/bike/BikeGallery'
 import BikeColorSelector from '@/components/bike/BikeColorSelector'
+import Bike360Viewer from '@/components/bike/Bike360Viewer'
 import { BRAND_MAP, BRAND_ACCENT_MAP } from '@/constants/brands'
 import { formatPriceInLakhs } from '@/constants/priceRanges'
 import type { IBike } from '@/lib/db/models/Bike'
@@ -58,10 +58,7 @@ export async function generateStaticParams(): Promise<
     const bikes = await Bike.find({ status: 'published' })
       .select('brandSlug slug')
       .lean<Array<{ brandSlug: string; slug: string }>>()
-    return bikes.map((bike) => ({
-      brandSlug: bike.brandSlug,
-      slug: bike.slug,
-    }))
+    return bikes.map((bike) => ({ brandSlug: bike.brandSlug, slug: bike.slug }))
   } catch {
     return []
   }
@@ -84,10 +81,7 @@ export async function generateMetadata({
       .lean<Pick<IBike, 'name' | 'tagline' | 'brandName' | 'heroImageUrl' | 'seo'>>()
 
     if (!bike) {
-      return {
-        title: 'Bike Not Found | MotoHub360',
-        robots: { index: false, follow: false },
-      }
+      return { title: 'Bike Not Found | MotoHub360', robots: { index: false, follow: false } }
     }
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? ''
@@ -117,7 +111,12 @@ export async function generateMetadata({
           ? [{ url: ogImage, width: 1200, height: 630, alt: `${bike.brandName} ${bike.name}` }]
           : undefined,
       },
-      twitter: { card: 'summary_large_image', title, description, images: ogImage ? [ogImage] : undefined },
+      twitter: {
+        card: 'summary_large_image',
+        title,
+        description,
+        images: ogImage ? [ogImage] : undefined,
+      },
       alternates: { canonical: canonicalUrl },
     }
   } catch {
@@ -222,7 +221,6 @@ export default async function BikeDetailPage({
   ]
 
   const vehicleJsonLd = buildVehicleJsonLd(bike, brandSlug, slug)
-
   const defaultColor = bike.colors[0] ?? null
 
   return (
@@ -261,9 +259,7 @@ export default async function BikeDetailPage({
         }
         .bike-hero-content {
           position: absolute;
-          bottom: 0;
-          left: 0;
-          right: 0;
+          bottom: 0; left: 0; right: 0;
           padding: clamp(24px, 5vw, 56px);
           z-index: 2;
         }
@@ -329,7 +325,6 @@ export default async function BikeDetailPage({
           .bike-hero-content { padding: 20px; }
           .bike-price-block { padding: 20px 0; }
         }
-        /* Screen reader only utility */
         .sr-only {
           position: absolute;
           width: 1px;
@@ -348,7 +343,7 @@ export default async function BikeDetailPage({
         role="main"
         aria-label={`${brandName} ${bike.name} details`}
       >
-        {/* ── HERO SECTION ──────────────────────────────────────────── */}
+        {/* ── HERO ────────────────────────────────────────────────── */}
         <section
           className="bike-hero-section"
           aria-label={`${bike.name} hero image`}
@@ -454,134 +449,51 @@ export default async function BikeDetailPage({
           </div>
         </section>
 
-        {/* ── PAGE CONTENT ──────────────────────────────────────────── */}
+        {/* ── PAGE CONTENT ────────────────────────────────────────── */}
         <div className="bike-detail-inner">
 
-          {/* ── Breadcrumb ──────────────────────────────────────────── */}
+          {/* Breadcrumb */}
           <div className="bike-breadcrumb-row">
             <Breadcrumb items={breadcrumbItems} />
           </div>
 
-          {/* ── Price block ─────────────────────────────────────────── */}
+          {/* Price block */}
           <div className="bike-price-block">
-            <p
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: '11px',
-                fontWeight: 600,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                color: 'var(--color-ink-tertiary)',
-                margin: 0,
-              }}
-            >
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-ink-tertiary)', margin: 0 }}>
               Price in India
             </p>
-
             <div className="bike-price-row">
               <div>
-                <div
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 'clamp(28px, 4vw, 44px)',
-                    fontWeight: 600,
-                    lineHeight: 1.1,
-                    letterSpacing: '-0.02em',
-                    color: 'var(--color-ink-primary)',
-                  }}
-                >
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 600, lineHeight: 1.1, letterSpacing: '-0.02em', color: 'var(--color-ink-primary)' }}>
                   {exShowroomFormatted}
-                  <span
-                    style={{
-                      fontSize: '16px',
-                      fontWeight: 400,
-                      color: 'var(--color-ink-tertiary)',
-                      marginLeft: '4px',
-                    }}
-                  >
-                    *
-                  </span>
+                  <span style={{ fontSize: '16px', fontWeight: 400, color: 'var(--color-ink-tertiary)', marginLeft: '4px' }}>*</span>
                 </div>
-                <p
-                  style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '12px',
-                    fontWeight: 400,
-                    color: 'var(--color-ink-tertiary)',
-                    margin: '4px 0 0',
-                  }}
-                >
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 400, color: 'var(--color-ink-tertiary)', margin: '4px 0 0' }}>
                   Ex-showroom price
                 </p>
               </div>
 
               {onRoadFormatted && (
                 <>
-                  <div
-                    aria-hidden="true"
-                    style={{
-                      width: '1px',
-                      height: '44px',
-                      backgroundColor: 'var(--color-border-hairline)',
-                      flexShrink: 0,
-                    }}
-                  />
+                  <div aria-hidden="true" style={{ width: '1px', height: '44px', backgroundColor: 'var(--color-border-hairline)', flexShrink: 0 }} />
                   <div>
-                    <div
-                      style={{
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: 'clamp(20px, 2.8vw, 32px)',
-                        fontWeight: 500,
-                        lineHeight: 1.1,
-                        letterSpacing: '-0.02em',
-                        color: 'var(--color-ink-secondary)',
-                      }}
-                    >
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(20px, 2.8vw, 32px)', fontWeight: 500, lineHeight: 1.1, letterSpacing: '-0.02em', color: 'var(--color-ink-secondary)' }}>
                       {onRoadFormatted}
                     </div>
-                    <p
-                      style={{
-                        fontFamily: 'var(--font-body)',
-                        fontSize: '12px',
-                        fontWeight: 400,
-                        color: 'var(--color-ink-tertiary)',
-                        margin: '4px 0 0',
-                      }}
-                    >
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 400, color: 'var(--color-ink-tertiary)', margin: '4px 0 0' }}>
                       On-road price (est.)
                     </p>
                   </div>
                 </>
               )}
             </div>
-
-            <p
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: '12px',
-                fontWeight: 400,
-                color: 'var(--color-ink-tertiary)',
-                margin: '12px 0 0',
-                lineHeight: 1.5,
-              }}
-            >
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 400, color: 'var(--color-ink-tertiary)', margin: '12px 0 0', lineHeight: 1.5 }}>
               *Ex-showroom price. On-road price includes registration,
               insurance, and other local charges which vary by city.
             </p>
           </div>
 
-          {/* ── B-03: Color selector — BikeColorSelector ──────────── */}
-          {/*
-           * B-03: BikeColorSelector — IMPLEMENTED.
-           *
-           * Shows interactive color swatches + selected color name.
-           * If any color has an imageUrl, shows a color preview image.
-           * Falls back to heroImageUrl when no per-color images exist.
-           * Keyboard navigable with radiogroup + roving tabindex pattern.
-           *
-           * Renders nothing for bikes with zero colors (guard in component).
-           * Renders name-only (no swatches) for bikes with exactly one color.
-           */}
+          {/* B-03: Color selector */}
           {bike.colors.length > 0 && (
             <div className="bike-section-gap">
               <BikeColorSelector
@@ -594,23 +506,15 @@ export default async function BikeDetailPage({
             </div>
           )}
 
-          {/* ── B-02: Image gallery — BikeGallery ────────────────── */}
+          {/* B-02: Image gallery */}
           {bike.gallery.length > 0 && (
             <div className="bike-section-gap">
               <p className="bike-section-label">
                 Gallery
-                <span
-                  style={{
-                    fontStyle: 'normal',
-                    fontWeight: 400,
-                    color: 'var(--color-ink-tertiary)',
-                    marginLeft: '8px',
-                  }}
-                >
+                <span style={{ fontStyle: 'normal', fontWeight: 400, color: 'var(--color-ink-tertiary)', marginLeft: '8px' }}>
                   ({bike.gallery.length + 1} images)
                 </span>
               </p>
-
               <BikeGallery
                 heroImageUrl={bike.heroImageUrl}
                 blurDataUrl={bike.blurDataUrl}
@@ -621,25 +525,26 @@ export default async function BikeDetailPage({
             </div>
           )}
 
-          {/* ── B-04: 360° viewer ─────────────────────────────────── */}
+          {/* ── B-04: 360° viewer — Bike360Viewer ────────────────── */}
           {/*
-           * B-04 INTEGRATION POINT:
-           *   <Bike360Viewer videoUrl={bike.video360Url} posterUrl={bike.heroImageUrl} />
+           * B-04: Bike360Viewer — IMPLEMENTED.
+           *
+           * Renders only when bike.video360Url is present.
+           * Shows poster image + "View in 360°" CTA button initially.
+           * On activation: plays the Cloudinary spin video in a loop.
+           * Controls: play/pause, fullscreen, close (return to poster).
+           * Keyboard: Space (play/pause), Escape (exit), F (fullscreen).
            */}
           {bike.video360Url && (
             <div className="bike-section-gap">
               <p className="bike-section-label">360° View</p>
-              <div className="bike-stub-section">
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '20px', color: 'var(--color-ink-tertiary)' }}>↻</span>
-                <div>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 500, color: 'var(--color-ink-primary)', margin: 0 }}>
-                    360° viewer available
-                  </p>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-ink-tertiary)', margin: '2px 0 0' }}>
-                    Interactive 360° spin viewer — implemented in B-04.
-                  </p>
-                </div>
-              </div>
+              <Bike360Viewer
+                videoUrl={bike.video360Url}
+                posterUrl={bike.heroImageUrl}
+                posterBlurUrl={bike.blurDataUrl}
+                bikeName={bike.name}
+                accentColor={accentColor}
+              />
             </div>
           )}
 
@@ -655,18 +560,7 @@ export default async function BikeDetailPage({
               bike.specs.engine.maxPower ||
               bike.specs.engine.maxTorque ||
               bike.specs.dimensions.kerbWeight) && (
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                  gap: '1px',
-                  backgroundColor: 'var(--color-border-hairline)',
-                  border: '1px solid var(--color-border-hairline)',
-                  borderRadius: '10px',
-                  overflow: 'hidden',
-                  marginBottom: '16px',
-                }}
-              >
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1px', backgroundColor: 'var(--color-border-hairline)', border: '1px solid var(--color-border-hairline)', borderRadius: '10px', overflow: 'hidden', marginBottom: '16px' }}>
                 {[
                   { label: 'Engine', value: bike.specs.engine.displacement },
                   { label: 'Max Power', value: bike.specs.engine.maxPower },
@@ -675,10 +569,7 @@ export default async function BikeDetailPage({
                 ]
                   .filter((s) => s.value)
                   .map((spec) => (
-                    <div
-                      key={spec.label}
-                      style={{ padding: '16px 20px', backgroundColor: 'var(--color-surface-raised)' }}
-                    >
+                    <div key={spec.label} style={{ padding: '16px 20px', backgroundColor: 'var(--color-surface-raised)' }}>
                       <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-ink-tertiary)', margin: '0 0 4px' }}>
                         {spec.label}
                       </p>
@@ -712,12 +603,7 @@ export default async function BikeDetailPage({
             (bike.specs.features.ridingModes?.length ?? 0) > 0) && (
             <div className="bike-section-gap">
               <p className="bike-section-label">Notable Features</p>
-
-              <div
-                style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}
-                role="list"
-                aria-label="Notable features"
-              >
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }} role="list" aria-label="Notable features">
                 {[
                   bike.specs.features.dualChannelAbs ? 'Dual-Channel ABS' : bike.specs.features.abs ? 'ABS' : null,
                   bike.specs.features.slipAssistClutch ? 'Slipper Clutch' : null,
@@ -731,61 +617,17 @@ export default async function BikeDetailPage({
                 ]
                   .filter(Boolean)
                   .map((feature) => (
-                    <span
-                      key={feature}
-                      role="listitem"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        height: '32px',
-                        padding: '0 12px',
-                        fontFamily: 'var(--font-body)',
-                        fontSize: '13px',
-                        fontWeight: 400,
-                        color: 'var(--color-ink-secondary)',
-                        backgroundColor: 'var(--color-surface-raised)',
-                        border: '1px solid var(--color-border-hairline)',
-                        borderRadius: '999px',
-                      }}
-                    >
-                      <span
-                        aria-hidden="true"
-                        style={{
-                          width: '6px',
-                          height: '6px',
-                          borderRadius: '999px',
-                          backgroundColor: accentColor,
-                          flexShrink: 0,
-                          display: 'inline-block',
-                        }}
-                      />
+                    <span key={feature} role="listitem" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', height: '32px', padding: '0 12px', fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 400, color: 'var(--color-ink-secondary)', backgroundColor: 'var(--color-surface-raised)', border: '1px solid var(--color-border-hairline)', borderRadius: '999px' }}>
+                      <span aria-hidden="true" style={{ width: '6px', height: '6px', borderRadius: '999px', backgroundColor: accentColor, flexShrink: 0, display: 'inline-block' }} />
                       {feature}
                     </span>
                   ))}
-
                 {(bike.specs.features.ridingModes?.length ?? 0) > 0 && (
-                  <span
-                    role="listitem"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      height: '32px',
-                      padding: '0 12px',
-                      fontFamily: 'var(--font-body)',
-                      fontSize: '13px',
-                      fontWeight: 400,
-                      color: 'var(--color-ink-secondary)',
-                      backgroundColor: 'var(--color-surface-raised)',
-                      border: '1px solid var(--color-border-hairline)',
-                      borderRadius: '999px',
-                    }}
-                  >
+                  <span role="listitem" style={{ display: 'inline-flex', alignItems: 'center', height: '32px', padding: '0 12px', fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 400, color: 'var(--color-ink-secondary)', backgroundColor: 'var(--color-surface-raised)', border: '1px solid var(--color-border-hairline)', borderRadius: '999px' }}>
                     {bike.specs.features.ridingModes?.length} Riding Modes
                   </span>
                 )}
               </div>
-
               <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-ink-tertiary)', margin: 0 }}>
                 Full features checklist with icons — implemented in B-06.
               </p>
@@ -812,7 +654,7 @@ export default async function BikeDetailPage({
             </div>
           </div>
 
-          {/* ── B-08: Mobile action bar bottom pad ───────────────── */}
+          {/* ── B-08: Mobile action bar space ────────────────────── */}
           {/*
            * B-08 INTEGRATION POINT:
            *   <BikeMobileActionBar price={bike.pricing.exShowroom} bikeName={bike.name} accentColor={accentColor} />
