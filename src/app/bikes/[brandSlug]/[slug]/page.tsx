@@ -1,14 +1,14 @@
 /*
  * Bike Detail Page — /bikes/[brandSlug]/[slug]
  *
- * B-02 CHANGES:
- *   - Import BikeGallery component
- *   - Replace gallery stub section with real <BikeGallery /> component
- *   - Pass heroImageUrl, blurDataUrl, images, bikeName, accentColor props
- *   - Remove gallery stub placeholder text
- *   - Corrected integration point labels (was B-04, now B-02)
+ * B-03 CHANGES:
+ *   - Import BikeColorSelector
+ *   - Replace static color chip list with <BikeColorSelector />
+ *   - Remove static color chip inline styles (now handled by component)
+ *   - Updated B-03 stub comment to "IMPLEMENTED in B-03"
+ *   - Remaining stubs (B-04 through B-08) unchanged
  *
- * All other code from B-01 is preserved unchanged.
+ * All other code from B-01/B-02 is preserved unchanged.
  */
 
 import type { Metadata } from 'next'
@@ -20,6 +20,7 @@ import Bike from '@/lib/db/models/Bike'
 import Brand from '@/lib/db/models/Brand'
 import Breadcrumb from '@/components/layout/Breadcrumb'
 import BikeGallery from '@/components/bike/BikeGallery'
+import BikeColorSelector from '@/components/bike/BikeColorSelector'
 import { BRAND_MAP, BRAND_ACCENT_MAP } from '@/constants/brands'
 import { formatPriceInLakhs } from '@/constants/priceRanges'
 import type { IBike } from '@/lib/db/models/Bike'
@@ -54,11 +55,9 @@ export async function generateStaticParams(): Promise<
 > {
   try {
     await connectDB()
-
     const bikes = await Bike.find({ status: 'published' })
       .select('brandSlug slug')
       .lean<Array<{ brandSlug: string; slug: string }>>()
-
     return bikes.map((bike) => ({
       brandSlug: bike.brandSlug,
       slug: bike.slug,
@@ -80,11 +79,7 @@ export async function generateMetadata({
   try {
     await connectDB()
 
-    const bike = await Bike.findOne({
-      brandSlug,
-      slug,
-      status: 'published',
-    })
+    const bike = await Bike.findOne({ brandSlug, slug, status: 'published' })
       .select('name tagline brandName heroImageUrl seo')
       .lean<Pick<IBike, 'name' | 'tagline' | 'brandName' | 'heroImageUrl' | 'seo'>>()
 
@@ -95,11 +90,8 @@ export async function generateMetadata({
       }
     }
 
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? ''
-
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? ''
     const canonicalUrl = `${siteUrl}/bikes/${brandSlug}/${slug}`
-
     const year = new Date().getFullYear()
 
     const title =
@@ -122,30 +114,14 @@ export async function generateMetadata({
         url: canonicalUrl,
         type: 'website',
         images: ogImage
-          ? [
-              {
-                url: ogImage,
-                width: 1200,
-                height: 630,
-                alt: `${bike.brandName} ${bike.name}`,
-              },
-            ]
+          ? [{ url: ogImage, width: 1200, height: 630, alt: `${bike.brandName} ${bike.name}` }]
           : undefined,
       },
-      twitter: {
-        card: 'summary_large_image',
-        title,
-        description,
-        images: ogImage ? [ogImage] : undefined,
-      },
-      alternates: {
-        canonical: canonicalUrl,
-      },
+      twitter: { card: 'summary_large_image', title, description, images: ogImage ? [ogImage] : undefined },
+      alternates: { canonical: canonicalUrl },
     }
   } catch {
-    return {
-      title: 'Bike Detail | MotoHub360',
-    }
+    return { title: 'Bike Detail | MotoHub360' }
   }
 }
 
@@ -158,18 +134,13 @@ function buildVehicleJsonLd(
   brandSlug: string,
   slug: string,
 ): string {
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? ''
-
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? ''
   const vehicle = {
     '@context': 'https://schema.org',
     '@type': 'Vehicle',
     name: `${bike.brandName} ${bike.name}`,
     description: bike.tagline,
-    brand: {
-      '@type': 'Brand',
-      name: bike.brandName,
-    },
+    brand: { '@type': 'Brand', name: bike.brandName },
     model: bike.name,
     image: bike.heroImageUrl,
     url: `${siteUrl}/bikes/${brandSlug}/${slug}`,
@@ -184,18 +155,14 @@ function buildVehicleJsonLd(
         name: 'Ex-showroom price',
       },
       availability: 'https://schema.org/InStock',
-      seller: {
-        '@type': 'Organization',
-        name: 'MotoHub360',
-      },
+      seller: { '@type': 'Organization', name: 'MotoHub360' },
     },
   }
-
   return JSON.stringify(vehicle)
 }
 
 // ---------------------------------------------------------------------------
-// Default blur placeholder
+// Default blur
 // ---------------------------------------------------------------------------
 
 const DEFAULT_BLUR =
@@ -228,12 +195,11 @@ export default async function BikeDetailPage({
     const brandDoc = await Brand.findOne({ slug: brandSlug, isActive: true })
       .select('accentColor')
       .lean<{ accentColor: string }>()
-
     if (brandDoc?.accentColor) {
       accentColor = brandDoc.accentColor
     }
   } catch {
-    // fall back to static constant
+    // static fallback
   }
 
   const brandName =
@@ -279,20 +245,16 @@ export default async function BikeDetailPage({
           background-color: var(--color-surface-inverse);
           overflow: hidden;
         }
-        @media (max-width: 768px) {
-          .bike-hero-section { aspect-ratio: 4 / 3; }
-        }
-        @media (max-width: 480px) {
-          .bike-hero-section { aspect-ratio: 1 / 1; }
-        }
+        @media (max-width: 768px) { .bike-hero-section { aspect-ratio: 4 / 3; } }
+        @media (max-width: 480px) { .bike-hero-section { aspect-ratio: 1 / 1; } }
         .bike-hero-scrim {
           position: absolute;
           inset: 0;
           background: linear-gradient(
             to top,
-            rgba(14, 15, 18, 0.92) 0%,
-            rgba(14, 15, 18, 0.6) 35%,
-            rgba(14, 15, 18, 0.2) 60%,
+            rgba(14,15,18,0.92) 0%,
+            rgba(14,15,18,0.6) 35%,
+            rgba(14,15,18,0.2) 60%,
             transparent 80%
           );
           z-index: 1;
@@ -310,9 +272,7 @@ export default async function BikeDetailPage({
           margin: 0 auto;
           padding: 0 32px;
         }
-        @media (max-width: 768px) {
-          .bike-detail-inner { padding: 0 20px; }
-        }
+        @media (max-width: 768px) { .bike-detail-inner { padding: 0 20px; } }
         .bike-breadcrumb-row { padding: 20px 0 0; }
         .bike-price-block {
           padding: 28px 0;
@@ -326,9 +286,7 @@ export default async function BikeDetailPage({
           margin-top: 12px;
         }
         .bike-section-gap { margin-top: 48px; }
-        @media (max-width: 768px) {
-          .bike-section-gap { margin-top: 32px; }
-        }
+        @media (max-width: 768px) { .bike-section-gap { margin-top: 32px; } }
         .bike-section-label {
           font-family: var(--font-body);
           font-size: 11px;
@@ -355,9 +313,7 @@ export default async function BikeDetailPage({
             padding-bottom: calc(clamp(80px, 12vw, 120px) + env(safe-area-inset-bottom));
           }
         }
-        .bike-back-link:hover {
-          color: var(--color-ink-primary) !important;
-        }
+        .bike-back-link:hover { color: var(--color-ink-primary) !important; }
         .bike-back-link:focus-visible {
           outline: none;
           box-shadow: var(--shadow-focus);
@@ -372,6 +328,18 @@ export default async function BikeDetailPage({
         @media (max-width: 480px) {
           .bike-hero-content { padding: 20px; }
           .bike-price-block { padding: 20px 0; }
+        }
+        /* Screen reader only utility */
+        .sr-only {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0,0,0,0);
+          white-space: nowrap;
+          border: 0;
         }
       `}</style>
 
@@ -489,12 +457,12 @@ export default async function BikeDetailPage({
         {/* ── PAGE CONTENT ──────────────────────────────────────────── */}
         <div className="bike-detail-inner">
 
-          {/* ── Breadcrumb ────────────────────────────────────────── */}
+          {/* ── Breadcrumb ──────────────────────────────────────────── */}
           <div className="bike-breadcrumb-row">
             <Breadcrumb items={breadcrumbItems} />
           </div>
 
-          {/* ── Price block ───────────────────────────────────────── */}
+          {/* ── Price block ─────────────────────────────────────────── */}
           <div className="bike-price-block">
             <p
               style={{
@@ -602,105 +570,31 @@ export default async function BikeDetailPage({
             </p>
           </div>
 
-          {/* ── Color selector (B-03 INTEGRATION POINT) ──────────── */}
+          {/* ── B-03: Color selector — BikeColorSelector ──────────── */}
           {/*
-           * B-03 INTEGRATION POINT:
+           * B-03: BikeColorSelector — IMPLEMENTED.
            *
-           * Replaces the static color chip list below with an
-           * interactive BikeColorSelector component.
+           * Shows interactive color swatches + selected color name.
+           * If any color has an imageUrl, shows a color preview image.
+           * Falls back to heroImageUrl when no per-color images exist.
+           * Keyboard navigable with radiogroup + roving tabindex pattern.
            *
-           * When implemented:
-           *   <BikeColorSelector
-           *     colors={bike.colors}
-           *     accentColor={accentColor}
-           *     onColorChange={(color) => ...updates hero/gallery image...}
-           *   />
-           *
-           * For B-01/B-02: renders the static color display.
+           * Renders nothing for bikes with zero colors (guard in component).
+           * Renders name-only (no swatches) for bikes with exactly one color.
            */}
           {bike.colors.length > 0 && (
             <div className="bike-section-gap">
-              <p className="bike-section-label">
-                Available Colours
-                <span
-                  style={{
-                    fontStyle: 'normal',
-                    fontWeight: 400,
-                    color: 'var(--color-ink-tertiary)',
-                    marginLeft: '8px',
-                  }}
-                >
-                  ({bike.colors.length})
-                </span>
-              </p>
-
-              <div
-                style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}
-                role="list"
-                aria-label="Available colour variants"
-              >
-                {bike.colors.map((color, index) => (
-                  <div
-                    key={`${color.hex}-${index}`}
-                    role="listitem"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '8px 14px',
-                      backgroundColor: 'var(--color-surface-raised)',
-                      border:
-                        index === 0
-                          ? `1.5px solid ${accentColor}`
-                          : '1px solid var(--color-border-hairline)',
-                      borderRadius: '999px',
-                    }}
-                  >
-                    <span
-                      aria-hidden="true"
-                      style={{
-                        width: '14px',
-                        height: '14px',
-                        borderRadius: '999px',
-                        backgroundColor: color.hex,
-                        border: '1.5px solid rgba(15,16,18,0.12)',
-                        flexShrink: 0,
-                        display: 'block',
-                      }}
-                    />
-                    <span
-                      style={{
-                        fontFamily: 'var(--font-body)',
-                        fontSize: '13px',
-                        fontWeight: index === 0 ? 500 : 400,
-                        color: 'var(--color-ink-primary)',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {color.name}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <BikeColorSelector
+                colors={bike.colors}
+                accentColor={accentColor}
+                heroImageUrl={bike.heroImageUrl}
+                blurDataUrl={bike.blurDataUrl}
+                bikeName={bike.name}
+              />
             </div>
           )}
 
           {/* ── B-02: Image gallery — BikeGallery ────────────────── */}
-          {/*
-           * B-02: BikeGallery component.
-           *
-           * Renders only when there are gallery images (bike.gallery.length > 0).
-           * BikeGallery internally also includes the heroImageUrl as the
-           * first image, so even a bike with an empty gallery array but
-           * a heroImageUrl would not show a gallery (single image → returns null).
-           *
-           * The gallery shows:
-           *   1. Hero image (from heroImageUrl)
-           *   2. Gallery images (from bike.gallery, up to 10)
-           *
-           * BikeGallery returns null when totalImages <= 1, so no
-           * conditional needed here — it self-guards.
-           */}
           {bike.gallery.length > 0 && (
             <div className="bike-section-gap">
               <p className="bike-section-label">
@@ -727,7 +621,7 @@ export default async function BikeDetailPage({
             </div>
           )}
 
-          {/* ── B-04: 360° viewer ────────────────────────────────── */}
+          {/* ── B-04: 360° viewer ─────────────────────────────────── */}
           {/*
            * B-04 INTEGRATION POINT:
            *   <Bike360Viewer videoUrl={bike.video360Url} posterUrl={bike.heroImageUrl} />
@@ -749,7 +643,7 @@ export default async function BikeDetailPage({
             </div>
           )}
 
-          {/* ── B-05: Spec table ─────────────────────────────────── */}
+          {/* ── B-05: Spec table ──────────────────────────────────── */}
           {/*
            * B-05 INTEGRATION POINT:
            *   <BikeSpecTable specs={bike.specs} />
@@ -779,38 +673,16 @@ export default async function BikeDetailPage({
                   { label: 'Max Torque', value: bike.specs.engine.maxTorque },
                   { label: 'Kerb Weight', value: bike.specs.dimensions.kerbWeight },
                 ]
-                  .filter((spec) => spec.value)
+                  .filter((s) => s.value)
                   .map((spec) => (
                     <div
                       key={spec.label}
-                      style={{
-                        padding: '16px 20px',
-                        backgroundColor: 'var(--color-surface-raised)',
-                      }}
+                      style={{ padding: '16px 20px', backgroundColor: 'var(--color-surface-raised)' }}
                     >
-                      <p
-                        style={{
-                          fontFamily: 'var(--font-body)',
-                          fontSize: '11px',
-                          fontWeight: 500,
-                          letterSpacing: '0.06em',
-                          textTransform: 'uppercase',
-                          color: 'var(--color-ink-tertiary)',
-                          margin: '0 0 4px',
-                        }}
-                      >
+                      <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-ink-tertiary)', margin: '0 0 4px' }}>
                         {spec.label}
                       </p>
-                      <p
-                        style={{
-                          fontFamily: 'var(--font-mono)',
-                          fontSize: '15px',
-                          fontWeight: 500,
-                          color: 'var(--color-ink-primary)',
-                          margin: 0,
-                          lineHeight: 1.3,
-                        }}
-                      >
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '15px', fontWeight: 500, color: 'var(--color-ink-primary)', margin: 0, lineHeight: 1.3 }}>
                         {spec.value}
                       </p>
                     </div>
@@ -821,9 +693,7 @@ export default async function BikeDetailPage({
             <div className="bike-stub-section">
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: '20px', color: 'var(--color-ink-tertiary)' }}>≡</span>
               <div>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 500, color: 'var(--color-ink-primary)', margin: 0 }}>
-                  Full specification table
-                </p>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 500, color: 'var(--color-ink-primary)', margin: 0 }}>Full specification table</p>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-ink-tertiary)', margin: '2px 0 0' }}>
                   Complete engine, dimensions, and features — implemented in B-05.
                 </p>
@@ -849,11 +719,7 @@ export default async function BikeDetailPage({
                 aria-label="Notable features"
               >
                 {[
-                  bike.specs.features.dualChannelAbs
-                    ? 'Dual-Channel ABS'
-                    : bike.specs.features.abs
-                    ? 'ABS'
-                    : null,
+                  bike.specs.features.dualChannelAbs ? 'Dual-Channel ABS' : bike.specs.features.abs ? 'ABS' : null,
                   bike.specs.features.slipAssistClutch ? 'Slipper Clutch' : null,
                   bike.specs.features.bluetooth ? 'Bluetooth' : null,
                   bike.specs.features.tft ? 'TFT Display' : null,
@@ -946,7 +812,7 @@ export default async function BikeDetailPage({
             </div>
           </div>
 
-          {/* ── B-08: Mobile action bar (stub space) ─────────────── */}
+          {/* ── B-08: Mobile action bar bottom pad ───────────────── */}
           {/*
            * B-08 INTEGRATION POINT:
            *   <BikeMobileActionBar price={bike.pricing.exShowroom} bikeName={bike.name} accentColor={accentColor} />
