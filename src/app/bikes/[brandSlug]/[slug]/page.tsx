@@ -1,17 +1,16 @@
 /*
  * Bike Detail Page — /bikes/[brandSlug]/[slug]
  *
- * B-06 CHANGES:
- *   - Import BikeFeaturesList
- *   - Replace the B-06 pill-chip stub with <BikeFeaturesList />
- *   - Section label changed from "Notable Features" to "Features"
- *   - Removed the inline pill chips and stub note
- *   - Section condition simplified: BikeFeaturesList.hasAnyPresent
- *     handles the empty state internally (returns null)
- *   - Page always renders the Features section label + BikeFeaturesList
- *     (BikeFeaturesList returns null if nothing to show)
+ * B-07 CHANGES:
+ *   - Import RelatedBikes
+ *   - Replace B-07 stub with <RelatedBikes /> (server-side data fetching)
+ *   - Section label moved inside RelatedBikes component
+ *     (component returns null when no related bikes exist — no orphaned label)
+ *   - Outer "bike-section-gap" wrapper still in page.tsx for spacing
+ *     (RelatedBikes renders its own section heading)
+ *   - Updated B-07 stub comment to "IMPLEMENTED in B-07"
  *
- * All other code from B-01 through B-05 is preserved unchanged.
+ * All other code from B-01 through B-06 is preserved unchanged.
  */
 
 import type { Metadata } from 'next'
@@ -27,6 +26,7 @@ import BikeColorSelector from '@/components/bike/BikeColorSelector'
 import Bike360Viewer from '@/components/bike/Bike360Viewer'
 import BikeSpecTable from '@/components/bike/BikeSpecTable'
 import BikeFeaturesList from '@/components/bike/BikeFeaturesList'
+import RelatedBikes from '@/components/bike/RelatedBikes'
 import { BRAND_MAP, BRAND_ACCENT_MAP } from '@/constants/brands'
 import { formatPriceInLakhs } from '@/constants/priceRanges'
 import type { IBike } from '@/lib/db/models/Bike'
@@ -64,7 +64,10 @@ export async function generateStaticParams(): Promise<
     const bikes = await Bike.find({ status: 'published' })
       .select('brandSlug slug')
       .lean<Array<{ brandSlug: string; slug: string }>>()
-    return bikes.map((bike) => ({ brandSlug: bike.brandSlug, slug: bike.slug }))
+    return bikes.map((bike) => ({
+      brandSlug: bike.brandSlug,
+      slug: bike.slug,
+    }))
   } catch {
     return []
   }
@@ -82,7 +85,11 @@ export async function generateMetadata({
   try {
     await connectDB()
 
-    const bike = await Bike.findOne({ brandSlug, slug, status: 'published' })
+    const bike = await Bike.findOne({
+      brandSlug,
+      slug,
+      status: 'published',
+    })
       .select('name tagline brandName heroImageUrl seo')
       .lean<Pick<IBike, 'name' | 'tagline' | 'brandName' | 'heroImageUrl' | 'seo'>>()
 
@@ -93,7 +100,8 @@ export async function generateMetadata({
       }
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? ''
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? ''
     const canonicalUrl = `${siteUrl}/bikes/${brandSlug}/${slug}`
     const year = new Date().getFullYear()
 
@@ -117,7 +125,14 @@ export async function generateMetadata({
         url: canonicalUrl,
         type: 'website',
         images: ogImage
-          ? [{ url: ogImage, width: 1200, height: 630, alt: `${bike.brandName} ${bike.name}` }]
+          ? [
+              {
+                url: ogImage,
+                width: 1200,
+                height: 630,
+                alt: `${bike.brandName} ${bike.name}`,
+              },
+            ]
           : undefined,
       },
       twitter: {
@@ -142,7 +157,8 @@ function buildVehicleJsonLd(
   brandSlug: string,
   slug: string,
 ): string {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? ''
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? ''
   return JSON.stringify({
     '@context': 'https://schema.org',
     '@type': 'Vehicle',
@@ -199,7 +215,10 @@ export default async function BikeDetailPage({
   let accentColor = BRAND_ACCENT_MAP[brandSlug] ?? '#15161A'
 
   try {
-    const brandDoc = await Brand.findOne({ slug: brandSlug, isActive: true })
+    const brandDoc = await Brand.findOne({
+      slug: brandSlug,
+      isActive: true,
+    })
       .select('accentColor')
       .lean<{ accentColor: string }>()
     if (brandDoc?.accentColor) {
@@ -299,15 +318,6 @@ export default async function BikeDetailPage({
           text-transform: uppercase;
           color: var(--color-ink-tertiary);
           margin: 0 0 16px;
-        }
-        .bike-stub-section {
-          padding: 24px;
-          background-color: var(--color-surface-raised);
-          border: 1px dashed var(--color-border-hairline);
-          border-radius: 10px;
-          display: flex;
-          align-items: center;
-          gap: 12px;
         }
         .bike-detail-bottom-pad {
           padding-bottom: clamp(80px, 12vw, 120px);
@@ -640,22 +650,7 @@ export default async function BikeDetailPage({
             />
           </div>
 
-          {/* ── B-06: Features list — BikeFeaturesList ────────────── */}
-          {/*
-           * B-06: BikeFeaturesList — IMPLEMENTED.
-           *
-           * Server Component — zero JS bundle overhead.
-           * Four groups: Safety, Performance, Technology, Lighting.
-           * ALL features shown (present + absent) for complete information.
-           * Riding modes shown as individual chips below the groups.
-           * Returns null if no feature data exists — section label
-           * is conditionally rendered using the same check.
-           *
-           * hasAnyFeatureData: true when at least one boolean feature
-           * is set OR ridingModes has entries. Used to conditionally
-           * render the "Features" section label — avoids an orphaned
-           * label with no content when BikeFeaturesList returns null.
-           */}
+          {/* B-06: Features list */}
           {(() => {
             const f = bike.specs.features
             const hasAnyFeatureData =
@@ -671,7 +666,8 @@ export default async function BikeDetailPage({
               f.navigation === true ||
               f.usbCharging === true ||
               f.ledLights === true ||
-              (Array.isArray(f.ridingModes) && f.ridingModes.length > 0)
+              (Array.isArray(f.ridingModes) &&
+                f.ridingModes.length > 0)
 
             if (!hasAnyFeatureData) return null
 
@@ -686,51 +682,28 @@ export default async function BikeDetailPage({
             )
           })()}
 
-          {/* ── B-07: Related bikes ───────────────────────────────── */}
+          {/* ── B-07: Related bikes — RelatedBikes ───────────────── */}
           {/*
-           * B-07 INTEGRATION POINT:
-           *   <RelatedBikes
-           *     currentSlug={slug}
-           *     brandSlug={brandSlug}
-           *     category={bike.category}
-           *   />
+           * B-07: RelatedBikes — IMPLEMENTED.
+           *
+           * Server Component with its own DB query.
+           * Fetches up to 4 related bikes (same brand first, then same
+           * category to fill remaining slots).
+           * Returns null when no related bikes exist — the outer
+           * bike-section-gap wrapper is not rendered in that case,
+           * because RelatedBikes self-manages its section heading.
+           *
+           * The Suspense boundary is omitted for simplicity in B-07.
+           * Since RelatedBikes is a Server Component, Next.js streams
+           * its HTML as part of the page render — no client waterfall.
            */}
           <div className="bike-section-gap">
-            <p className="bike-section-label">Related Motorcycles</p>
-            <div className="bike-stub-section">
-              <span
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '20px',
-                  color: 'var(--color-ink-tertiary)',
-                }}
-              >
-                ⊞
-              </span>
-              <div>
-                <p
-                  style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    color: 'var(--color-ink-primary)',
-                    margin: 0,
-                  }}
-                >
-                  Related {brandName} motorcycles
-                </p>
-                <p
-                  style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '13px',
-                    color: 'var(--color-ink-tertiary)',
-                    margin: '2px 0 0',
-                  }}
-                >
-                  Compact BikeCard scroll row — implemented in B-07.
-                </p>
-              </div>
-            </div>
+            <RelatedBikes
+              currentSlug={slug}
+              brandSlug={brandSlug}
+              category={bike.category}
+              accentColor={accentColor}
+            />
           </div>
 
           {/* ── B-08: Mobile action bar ───────────────────────────── */}

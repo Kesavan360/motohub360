@@ -128,6 +128,7 @@ export interface BikeCardProps {
    * Default: false (lazy load).
    */
   priority?: boolean
+  brandAccentMap?: Record<string, string>
 }
 
 // ---------------------------------------------------------------------------
@@ -147,6 +148,7 @@ export default function BikeCard({
   accentColor = '#15161A',
   className = '',
   priority = false,
+  brandAccentMap,
 }: BikeCardProps) {
   const [isHovered, setIsHovered] = useState(false)
 
