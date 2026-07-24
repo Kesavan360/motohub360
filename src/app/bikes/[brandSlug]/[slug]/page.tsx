@@ -1,15 +1,17 @@
 /*
  * Bike Detail Page — /bikes/[brandSlug]/[slug]
  *
- * B-05 CHANGES:
- *   - Import BikeSpecTable
- *   - Replace B-05 stub (and the quick-glance spec strip) with
- *     <BikeSpecTable specs={bike.specs} accentColor={accentColor} />
- *   - Section label changed from "Key Specifications" to "Specifications"
- *   - Quick-glance 4-cell grid removed (full table replaces it)
- *   - Footnote moved into BikeSpecTable component itself
+ * B-06 CHANGES:
+ *   - Import BikeFeaturesList
+ *   - Replace the B-06 pill-chip stub with <BikeFeaturesList />
+ *   - Section label changed from "Notable Features" to "Features"
+ *   - Removed the inline pill chips and stub note
+ *   - Section condition simplified: BikeFeaturesList.hasAnyPresent
+ *     handles the empty state internally (returns null)
+ *   - Page always renders the Features section label + BikeFeaturesList
+ *     (BikeFeaturesList returns null if nothing to show)
  *
- * All other code from B-01 through B-04 is preserved unchanged.
+ * All other code from B-01 through B-05 is preserved unchanged.
  */
 
 import type { Metadata } from 'next'
@@ -24,6 +26,7 @@ import BikeGallery from '@/components/bike/BikeGallery'
 import BikeColorSelector from '@/components/bike/BikeColorSelector'
 import Bike360Viewer from '@/components/bike/Bike360Viewer'
 import BikeSpecTable from '@/components/bike/BikeSpecTable'
+import BikeFeaturesList from '@/components/bike/BikeFeaturesList'
 import { BRAND_MAP, BRAND_ACCENT_MAP } from '@/constants/brands'
 import { formatPriceInLakhs } from '@/constants/priceRanges'
 import type { IBike } from '@/lib/db/models/Bike'
@@ -84,7 +87,10 @@ export async function generateMetadata({
       .lean<Pick<IBike, 'name' | 'tagline' | 'brandName' | 'heroImageUrl' | 'seo'>>()
 
     if (!bike) {
-      return { title: 'Bike Not Found | MotoHub360', robots: { index: false, follow: false } }
+      return {
+        title: 'Bike Not Found | MotoHub360',
+        robots: { index: false, follow: false },
+      }
     }
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? ''
@@ -308,7 +314,9 @@ export default async function BikeDetailPage({
         }
         @supports (padding-bottom: env(safe-area-inset-bottom)) {
           .bike-detail-bottom-pad {
-            padding-bottom: calc(clamp(80px, 12vw, 120px) + env(safe-area-inset-bottom));
+            padding-bottom: calc(
+              clamp(80px, 12vw, 120px) + env(safe-area-inset-bottom)
+            );
           }
         }
         .bike-back-link:hover { color: var(--color-ink-primary) !important; }
@@ -345,7 +353,7 @@ export default async function BikeDetailPage({
         role="main"
         aria-label={`${brandName} ${bike.name} details`}
       >
-        {/* ── HERO ────────────────────────────────────────────────── */}
+        {/* ── HERO ─────────────────────────────────────────────────── */}
         <section
           className="bike-hero-section"
           aria-label={`${bike.name} hero image`}
@@ -451,7 +459,7 @@ export default async function BikeDetailPage({
           </div>
         </section>
 
-        {/* ── PAGE CONTENT ────────────────────────────────────────── */}
+        {/* ── PAGE CONTENT ─────────────────────────────────────────── */}
         <div className="bike-detail-inner">
 
           {/* Breadcrumb */}
@@ -620,18 +628,7 @@ export default async function BikeDetailPage({
             </div>
           )}
 
-          {/* ── B-05: Spec table — BikeSpecTable ─────────────────── */}
-          {/*
-           * B-05: BikeSpecTable — IMPLEMENTED.
-           *
-           * Server Component — zero JS bundle overhead.
-           * Two sections: Engine & Performance, Dimensions & Capacity.
-           * Empty fields and empty sections are omitted automatically.
-           * Returns null if all spec fields are empty (incomplete entry).
-           *
-           * The quick-glance 4-cell spec strip from B-01 is removed here
-           * — BikeSpecTable provides the full data in a cleaner format.
-           */}
+          {/* B-05: Spec table */}
           <div className="bike-section-gap">
             <p className="bike-section-label">Specifications</p>
             <BikeSpecTable
@@ -643,111 +640,51 @@ export default async function BikeDetailPage({
             />
           </div>
 
-          {/* ── B-06: Features list ───────────────────────────────── */}
+          {/* ── B-06: Features list — BikeFeaturesList ────────────── */}
           {/*
-           * B-06 INTEGRATION POINT:
-           *   <BikeFeaturesList features={bike.specs.features} />
+           * B-06: BikeFeaturesList — IMPLEMENTED.
+           *
+           * Server Component — zero JS bundle overhead.
+           * Four groups: Safety, Performance, Technology, Lighting.
+           * ALL features shown (present + absent) for complete information.
+           * Riding modes shown as individual chips below the groups.
+           * Returns null if no feature data exists — section label
+           * is conditionally rendered using the same check.
+           *
+           * hasAnyFeatureData: true when at least one boolean feature
+           * is set OR ridingModes has entries. Used to conditionally
+           * render the "Features" section label — avoids an orphaned
+           * label with no content when BikeFeaturesList returns null.
            */}
-          {(bike.specs.features.abs ||
-            bike.specs.features.bluetooth ||
-            bike.specs.features.tft ||
-            bike.specs.features.usbCharging ||
-            bike.specs.features.ledLights ||
-            bike.specs.features.quickshifter ||
-            bike.specs.features.tractionControl ||
-            bike.specs.features.cruiseControl ||
-            bike.specs.features.slipAssistClutch ||
-            (bike.specs.features.ridingModes?.length ?? 0) > 0) && (
-            <div className="bike-section-gap">
-              <p className="bike-section-label">Notable Features</p>
-              <div
-                style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}
-                role="list"
-                aria-label="Notable features"
-              >
-                {[
-                  bike.specs.features.dualChannelAbs
-                    ? 'Dual-Channel ABS'
-                    : bike.specs.features.abs
-                    ? 'ABS'
-                    : null,
-                  bike.specs.features.slipAssistClutch ? 'Slipper Clutch' : null,
-                  bike.specs.features.bluetooth ? 'Bluetooth' : null,
-                  bike.specs.features.tft ? 'TFT Display' : null,
-                  bike.specs.features.usbCharging ? 'USB Charging' : null,
-                  bike.specs.features.ledLights ? 'Full LED' : null,
-                  bike.specs.features.quickshifter ? 'Quickshifter' : null,
-                  bike.specs.features.tractionControl ? 'Traction Control' : null,
-                  bike.specs.features.cruiseControl ? 'Cruise Control' : null,
-                ]
-                  .filter(Boolean)
-                  .map((feature) => (
-                    <span
-                      key={feature}
-                      role="listitem"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        height: '32px',
-                        padding: '0 12px',
-                        fontFamily: 'var(--font-body)',
-                        fontSize: '13px',
-                        fontWeight: 400,
-                        color: 'var(--color-ink-secondary)',
-                        backgroundColor: 'var(--color-surface-raised)',
-                        border: '1px solid var(--color-border-hairline)',
-                        borderRadius: '999px',
-                      }}
-                    >
-                      <span
-                        aria-hidden="true"
-                        style={{
-                          width: '6px',
-                          height: '6px',
-                          borderRadius: '999px',
-                          backgroundColor: accentColor,
-                          flexShrink: 0,
-                          display: 'inline-block',
-                        }}
-                      />
-                      {feature}
-                    </span>
-                  ))}
+          {(() => {
+            const f = bike.specs.features
+            const hasAnyFeatureData =
+              f.abs === true ||
+              f.dualChannelAbs === true ||
+              f.tractionControl === true ||
+              f.slipAssistClutch === true ||
+              f.quickshifter === true ||
+              f.autoblipper === true ||
+              f.cruiseControl === true ||
+              f.tft === true ||
+              f.bluetooth === true ||
+              f.navigation === true ||
+              f.usbCharging === true ||
+              f.ledLights === true ||
+              (Array.isArray(f.ridingModes) && f.ridingModes.length > 0)
 
-                {(bike.specs.features.ridingModes?.length ?? 0) > 0 && (
-                  <span
-                    role="listitem"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      height: '32px',
-                      padding: '0 12px',
-                      fontFamily: 'var(--font-body)',
-                      fontSize: '13px',
-                      fontWeight: 400,
-                      color: 'var(--color-ink-secondary)',
-                      backgroundColor: 'var(--color-surface-raised)',
-                      border: '1px solid var(--color-border-hairline)',
-                      borderRadius: '999px',
-                    }}
-                  >
-                    {bike.specs.features.ridingModes?.length} Riding Modes
-                  </span>
-                )}
+            if (!hasAnyFeatureData) return null
+
+            return (
+              <div className="bike-section-gap">
+                <p className="bike-section-label">Features</p>
+                <BikeFeaturesList
+                  features={bike.specs.features}
+                  accentColor={accentColor}
+                />
               </div>
-              <p
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '12px',
-                  color: 'var(--color-ink-tertiary)',
-                  margin: '12px 0 0',
-                }}
-              >
-                Full features checklist with icons — implemented in B-06.
-              </p>
-            </div>
-          )}
+            )
+          })()}
 
           {/* ── B-07: Related bikes ───────────────────────────────── */}
           {/*
