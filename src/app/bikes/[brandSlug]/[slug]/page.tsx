@@ -1,16 +1,17 @@
 /*
  * Bike Detail Page — /bikes/[brandSlug]/[slug]
  *
- * B-07 CHANGES:
- *   - Import RelatedBikes
- *   - Replace B-07 stub with <RelatedBikes /> (server-side data fetching)
- *   - Section label moved inside RelatedBikes component
- *     (component returns null when no related bikes exist — no orphaned label)
- *   - Outer "bike-section-gap" wrapper still in page.tsx for spacing
- *     (RelatedBikes renders its own section heading)
- *   - Updated B-07 stub comment to "IMPLEMENTED in B-07"
+ * B-08 CHANGES:
+ *   - Import BikeMobileActionBar
+ *   - Add id="bike-price-block" to the price block <div>
+ *     (BikeMobileActionBar watches this element via IntersectionObserver)
+ *   - Replace B-08 bottom pad section with <BikeMobileActionBar />
+ *     rendered outside the scroll area, above the bottom pad
+ *   - Bottom pad div remains for safe spacing above the action bar
+ *   - Updated B-08 stub to "IMPLEMENTED in B-08"
+ *   - Phase 8 (Bike Detail Page) is now COMPLETE
  *
- * All other code from B-01 through B-06 is preserved unchanged.
+ * All other code from B-01 through B-07 is preserved unchanged.
  */
 
 import type { Metadata } from 'next'
@@ -27,6 +28,7 @@ import Bike360Viewer from '@/components/bike/Bike360Viewer'
 import BikeSpecTable from '@/components/bike/BikeSpecTable'
 import BikeFeaturesList from '@/components/bike/BikeFeaturesList'
 import RelatedBikes from '@/components/bike/RelatedBikes'
+import BikeMobileActionBar from '@/components/bike/BikeMobileActionBar'
 import { BRAND_MAP, BRAND_ACCENT_MAP } from '@/constants/brands'
 import { formatPriceInLakhs } from '@/constants/priceRanges'
 import type { IBike } from '@/lib/db/models/Bike'
@@ -91,7 +93,12 @@ export async function generateMetadata({
       status: 'published',
     })
       .select('name tagline brandName heroImageUrl seo')
-      .lean<Pick<IBike, 'name' | 'tagline' | 'brandName' | 'heroImageUrl' | 'seo'>>()
+      .lean<
+        Pick<
+          IBike,
+           'name' | 'tagline' | 'brandName' | 'heroImageUrl' | 'seo'
+        >
+      >()
 
     if (!bike) {
       return {
@@ -319,14 +326,22 @@ export default async function BikeDetailPage({
           color: var(--color-ink-tertiary);
           margin: 0 0 16px;
         }
+        /*
+         * Bottom pad — reserves space above the mobile action bar.
+         * On mobile: matches the action bar height (~80px) + safe area.
+         * On desktop: small bottom breathing room.
+         */
         .bike-detail-bottom-pad {
-          padding-bottom: clamp(80px, 12vw, 120px);
+          padding-bottom: 48px;
         }
-        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+        @media (max-width: 768px) {
           .bike-detail-bottom-pad {
-            padding-bottom: calc(
-              clamp(80px, 12vw, 120px) + env(safe-area-inset-bottom)
-            );
+            padding-bottom: 88px;
+          }
+          @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            .bike-detail-bottom-pad {
+              padding-bottom: calc(88px + env(safe-area-inset-bottom));
+            }
           }
         }
         .bike-back-link:hover { color: var(--color-ink-primary) !important; }
@@ -477,8 +492,17 @@ export default async function BikeDetailPage({
             <Breadcrumb items={breadcrumbItems} />
           </div>
 
-          {/* Price block */}
-          <div className="bike-price-block">
+          {/* ── Price block — watched by BikeMobileActionBar ─────── */}
+          {/*
+           * id="bike-price-block" — the IntersectionObserver in
+           * BikeMobileActionBar watches this element.
+           * When this block is visible: action bar hides.
+           * When this block scrolls out: action bar shows.
+           */}
+          <div
+            id="bike-price-block"
+            className="bike-price-block"
+          >
             <p
               style={{
                 fontFamily: 'var(--font-body)',
@@ -682,21 +706,7 @@ export default async function BikeDetailPage({
             )
           })()}
 
-          {/* ── B-07: Related bikes — RelatedBikes ───────────────── */}
-          {/*
-           * B-07: RelatedBikes — IMPLEMENTED.
-           *
-           * Server Component with its own DB query.
-           * Fetches up to 4 related bikes (same brand first, then same
-           * category to fill remaining slots).
-           * Returns null when no related bikes exist — the outer
-           * bike-section-gap wrapper is not rendered in that case,
-           * because RelatedBikes self-manages its section heading.
-           *
-           * The Suspense boundary is omitted for simplicity in B-07.
-           * Since RelatedBikes is a Server Component, Next.js streams
-           * its HTML as part of the page render — no client waterfall.
-           */}
+          {/* B-07: Related bikes */}
           <div className="bike-section-gap">
             <RelatedBikes
               currentSlug={slug}
@@ -706,18 +716,35 @@ export default async function BikeDetailPage({
             />
           </div>
 
-          {/* ── B-08: Mobile action bar ───────────────────────────── */}
           {/*
-           * B-08 INTEGRATION POINT:
-           *   <BikeMobileActionBar
-           *     price={bike.pricing.exShowroom}
-           *     bikeName={bike.name}
-           *     accentColor={accentColor}
-           *   />
+           * Bottom padding — reserves space so the last section
+           * is not obscured by the sticky mobile action bar.
+           * Desktop: 48px. Mobile: 88px + safe area inset.
            */}
           <div className="bike-detail-bottom-pad" />
         </div>
       </main>
+
+      {/* ── B-08: Mobile action bar — BikeMobileActionBar ────────── */}
+      {/*
+       * B-08: BikeMobileActionBar — IMPLEMENTED.
+       *
+       * Rendered OUTSIDE <main> so its fixed positioning is relative
+       * to the viewport, not the scrolling content area.
+       * Placed after <main> in the DOM so it sits above content
+       * in stacking order (z-index: 40).
+       *
+       * Watches id="bike-price-block" via IntersectionObserver.
+       * Hidden when price block visible, shown when scrolled past.
+       * Hidden on desktop (≥ 769px) via CSS.
+       * 'use client' — uses useState + useEffect for observer.
+       */}
+      <BikeMobileActionBar
+        price={bike.pricing.exShowroom}
+        bikeName={bike.name}
+        accentColor={accentColor}
+        priceBlockId="bike-price-block"
+      />
     </>
   )
 }
