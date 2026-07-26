@@ -1,34 +1,20 @@
 /*
  * Admin Dashboard — /admin
  *
- * MPD Section 5.5, Admin Panel:
- *   "Admin dashboard: overview of bike count, published vs draft.
- *   Quick action buttons: Add Bike, View All Bikes."
+ * A-05 CHANGES:
+ *   - Import getAdminSession from @/lib/auth (replaces inline try/catch)
+ *   - Session read is now a single clean call
+ *   - requireAdminSession() used for belt-and-suspenders protection
+ *   - adminSession.name used directly for the greeting
  *
- * This is the landing page after login.
- * A-04 middleware redirects unauthenticated /admin requests to /admin/login.
- * After login (A-03), the user lands here.
- *
- * V1 SCOPE — B-level stats from MongoDB:
- *   Total bikes, published count, draft count, brand count.
- *   Quick action cards: Add New Bike, View All Bikes.
- *
- * FUTURE:
- *   A-06 adds the full BikeTable on /admin/bikes.
- *   This dashboard stays as a lightweight overview.
- *
- * SERVER COMPONENT:
- *   Fetches counts from MongoDB server-side.
- *   force-dynamic is inherited from the admin layout (L-10).
+ * All other content from A-04 is unchanged.
  */
 
 import Link from 'next/link'
-import { cookies } from 'next/headers'
-import { getIronSession } from 'iron-session'
 import connectDB from '@/lib/db/mongodb'
 import Bike from '@/lib/db/models/Bike'
 import Brand from '@/lib/db/models/Brand'
-import { sessionOptions, type SessionData } from '@/lib/session'
+import { requireAdminSession } from '@/lib/auth'
 
 // ---------------------------------------------------------------------------
 // Stat card sub-component
@@ -56,9 +42,6 @@ function StatCard({
         overflow: 'hidden',
       }}
     >
-      {/*
-       * Accent bar — top-left, matches BikeSpecTable / BikeFeaturesList style.
-       */}
       <div
         aria-hidden="true"
         style={{
@@ -180,28 +163,16 @@ function ActionCard({
 
 export default async function AdminDashboardPage() {
   /*
-   * Read the admin session to personalise the greeting.
-   * A-04 middleware guarantees this page is only reached when
-   * a valid session exists — no need for a redirect guard here.
+   * A-05: requireAdminSession() replaces the inline try/catch session read.
+   * Returns AdminSessionData or redirects to /admin/login.
+   * The A-04 middleware already redirected unauthed requests before this,
+   * so this is the belt-and-suspenders page-level check.
    */
-  let adminName = 'Admin'
-
-  try {
-    const session = await getIronSession<SessionData>(
-      await cookies(),
-      sessionOptions,
-    )
-    if (session.admin?.name) {
-      adminName = session.admin.name
-    }
-  } catch {
-    // session read failed — use default greeting
-  }
+  const adminSession = await requireAdminSession()
 
   /*
-   * Fetch bike and brand counts from MongoDB.
-   * All fetches run in parallel for speed.
-   * Falls back to 0 on any DB error.
+   * Fetch bike and brand counts from MongoDB in parallel.
+   * Falls back to 0 on any DB error — dashboard still renders.
    */
   let totalBikes = 0
   let publishedBikes = 0
@@ -225,7 +196,7 @@ export default async function AdminDashboardPage() {
     // DB unavailable — show zeros
   }
 
-  const ACCENT = '#7A2E2E' // admin accent (Royal Enfield red used site-wide)
+  const ACCENT = '#7A2E2E'
 
   return (
     <>
@@ -255,12 +226,8 @@ export default async function AdminDashboardPage() {
           }
         }
         @media (max-width: 640px) {
-          .admin-stats-grid {
-            grid-template-columns: 1fr;
-          }
-          .admin-actions-grid {
-            grid-template-columns: 1fr;
-          }
+          .admin-stats-grid { grid-template-columns: 1fr; }
+          .admin-actions-grid { grid-template-columns: 1fr; }
         }
       `}</style>
 
@@ -276,14 +243,18 @@ export default async function AdminDashboardPage() {
               margin: '4px 0 0',
             }}
           >
-            Welcome back, {adminName}
+            {/*
+             * A-05: adminSession.name from requireAdminSession() —
+             * no try/catch needed, session is guaranteed here.
+             */}
+            Welcome back, {adminSession.name}
           </p>
         </div>
       </div>
 
       <div className="admin-page-content">
 
-        {/* ── Stats ───────────────────────────────────────────────── */}
+        {/* Stats */}
         <div
           style={{ marginBottom: '32px' }}
           aria-label="Site statistics"
@@ -330,7 +301,7 @@ export default async function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* ── Quick actions ────────────────────────────────────────── */}
+        {/* Quick actions */}
         <div>
           <p
             style={{
@@ -362,7 +333,7 @@ export default async function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* ── Status note for V1 ───────────────────────────────────── */}
+        {/* V1 status note */}
         <div
           style={{
             marginTop: '32px',
