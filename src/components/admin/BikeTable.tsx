@@ -58,6 +58,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { formatPriceInLakhs } from '@/constants/priceRanges'
+import { Fragment } from 'react'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -397,7 +398,7 @@ export default function BikeTable({ bikes }: BikeTableProps) {
               const isPublished = bike.status === 'published'
 
               return (
-                <>
+                <Fragment key={bike._id}>
                   <tr
                     key={bike._id}
                     style={{
@@ -616,7 +617,7 @@ export default function BikeTable({ bikes }: BikeTableProps) {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               )
             })}
           </tbody>
