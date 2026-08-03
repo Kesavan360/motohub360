@@ -58,6 +58,7 @@ import { useRouter } from 'next/navigation'
 import Icon from '@/components/ui/Icon'
 import BikeFormBasic from '@/components/admin/BikeFormBasic'
 import BikeFormSpecifications from '@/components/admin/BikeFormSpecifications'
+import BikeFormPricing from '@/components/admin/BikeFormPricing'
 import {
   BIKE_FORM_SECTIONS,
   BIKE_FORM_SECTION_LABELS,
@@ -739,6 +740,18 @@ export default function BikeFormShell({
         />
       )
     }
+
+    if (activeSection === 'pricing') {
+      return (
+        <BikeFormPricing
+          values={values.pricing}
+          errors={errors.pricing}
+          onChange={updatePricing}
+          disabled={isSubmitting}
+        />
+      )
+    }
+
     const stub = SECTION_STUBS[activeSection]
 
     return (

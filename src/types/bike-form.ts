@@ -257,10 +257,38 @@ export interface BikeFormColorVariant {
  * colors:     ordered list of colour variants. Min 0 (no colours listed),
  *             max 20. The first colour in the array is the default.
  */
+export interface BikeFormPricingErrors {
+  exShowroom?:    string
+  onRoad?:        string
+  emiStartsFrom?: string
+  priceNotes?:    string
+  priceVariants?: Array<{ name?: string; price?: string } | undefined>
+}
+export interface BikeFormPriceVariant {
+  name:  string
+  price: string
+}
 export interface BikeFormPricingValues {
-  exShowroom: string
-  onRoad:     string
-  colors:     BikeFormColorVariant[]
+  exShowroom:    string
+  onRoad:        string
+  /*
+   * NEW A-08.5 fields:
+   *
+   * emiStartsFrom — estimated monthly EMI in INR (optional).
+   *                 Stored as string; parsed to number on submit.
+   *                 Empty string = not provided.
+   *
+   * priceNotes    — optional free-text note about pricing
+   *                 (e.g. "Ex-showroom Delhi. Prices vary by city.").
+   *                 Max FIELD_LIMITS.PRICE_NOTES_MAX characters.
+   *
+   * priceVariants — ordered list of named trim levels with base prices.
+   *                 Empty array = no variants (single price).
+   */
+  emiStartsFrom: string
+  priceNotes:    string
+  priceVariants: BikeFormPriceVariant[]
+  colors:        BikeFormColorVariant[]
 }
 
 // ---------------------------------------------------------------------------
@@ -390,7 +418,7 @@ export interface BikeFormErrors {
     engine?:     FieldErrors<BikeFormSpecEngineValues>
     dimensions?: FieldErrors<BikeFormSpecDimensionValues>
   }
-  pricing?: FieldErrors<Pick<BikeFormPricingValues, 'exShowroom' | 'onRoad'>>
+  pricing?: BikeFormPricingErrors
   gallery?: FieldErrors<Pick<BikeFormGalleryValues, 'heroImageUrl'>>
   seo?:     FieldErrors<BikeFormSEOValues>
 }
@@ -439,6 +467,12 @@ export interface BikeFormSubmitPayload {
   pricing: {
     exShowroom: number
     onRoad?:    number
+    emiStartsFrom?: number
+    priceNotes?: string
+    priceVariants?: Array<{
+    name: string
+    price: number
+}>
   }
 
   /*
@@ -568,6 +602,12 @@ export interface BikeFormInitialData {
   pricing: {
     exShowroom: number
     onRoad?:    number
+    emiStartsFrom?: number
+    priceNotes?: string
+    priceVariants?: Array<{
+      name: string
+      price: number
+}>
   }
 
   specs?: {
@@ -696,8 +736,11 @@ export const DEFAULT_SPEC_VALUES: BikeFormSpecValues = {
 
 export const DEFAULT_PRICING_VALUES: BikeFormPricingValues = {
   exShowroom: '',
-  onRoad:     '',
-  colors:     [],
+  onRoad: '',
+  emiStartsFrom: '',
+  priceNotes: '',
+  priceVariants: [],
+  colors: [],
 }
 
 export const DEFAULT_GALLERY_VALUES: BikeFormGalleryValues = {

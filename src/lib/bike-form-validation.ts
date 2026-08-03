@@ -79,6 +79,8 @@ import type {
     COLOR_NAME_MAX:      50,
     META_TITLE_MAX:      60,
     META_DESCRIPTION_MAX: 160,
+    PRICE_NOTES_MAX: 300,
+    VARIANT_NAME_MAX: 100, 
     PRICE_MIN:           10_000,        // ₹10,000 — below this is unrealistic
     PRICE_MAX:           100_000_000,   // ₹10 crore — above this is unrealistic
   } as const
@@ -420,7 +422,73 @@ import type {
   
     return null
   }
+  export function validateEmiStartsFrom(value: string): string | null {
+    if (!value.trim()) return null
   
+    const parsed = parsePriceString(value)
+  
+    if (parsed === null) {
+      return 'Enter a valid EMI amount in INR (e.g. 3500).'
+    }
+  
+    if (parsed > FIELD_LIMITS.PRICE_MAX) {
+      return `EMI amount must be ₹${FIELD_LIMITS.PRICE_MAX.toLocaleString('en-IN')} or less.`
+    }
+  
+    return null
+  }
+  
+  export function validatePriceNotes(value: string): string |null {
+    if (value.length > FIELD_LIMITS.PRICE_NOTES_MAX) {
+      return `Price notes must be ${FIELD_LIMITS.PRICE_NOTES_MAX} characters or fewer (currently ${value.length}).`
+    }
+  
+    return null
+  }
+  
+  export function validatePriceVariantName(
+    value: string,
+    index: number,
+  ): string | null {
+  
+    if (!value.trim()) {
+      return `Variant ${index + 1}: name is required.`
+    }
+  
+    if (value.length > FIELD_LIMITS.VARIANT_NAME_MAX) {
+      return `Variant ${index + 1}: name must be ${FIELD_LIMITS.VARIANT_NAME_MAX} characters or fewer.`
+    }
+  
+    return null
+  }
+  
+  export function validatePriceVariantPrice(
+    value: string,
+    index: number,
+  ): string | null {
+  
+    if (!value.trim()) {
+      return `Variant ${index + 1}: price is required.`
+    }
+  
+    const parsed = parsePriceString(value)
+  
+    if (parsed === null) {
+      return `Variant ${index + 1}: enter a valid price in INR.`
+    }
+  
+    if (parsed < FIELD_LIMITS.PRICE_MIN) {
+      return `Variant ${index + 1}: price must be at least ₹${FIELD_LIMITS.PRICE_MIN.toLocaleString('en-IN')}.`
+    }
+  
+    if (parsed > FIELD_LIMITS.PRICE_MAX) {
+      return `Variant ${index + 1}: price must be ₹${FIELD_LIMITS.PRICE_MAX.toLocaleString('en-IN')} or less.`
+    }
+  
+    return null
+  }
+
+
   /*
    * validateColorVariant — validates a single colour variant.
    *
@@ -780,9 +848,21 @@ import type {
     // ── Pricing ───────────────────────────────────────────────────────────
   
     const exShowroom = parsePriceString(pricing.exShowroom) ?? 0
-    const onRoad     = pricing.onRoad.trim()
+
+    const onRoad = pricing.onRoad.trim()
       ? parsePriceString(pricing.onRoad) ?? undefined
       : undefined
+    
+    const emiStartsFrom = pricing.emiStartsFrom.trim()
+      ? parsePriceString(pricing.emiStartsFrom) ?? undefined
+      : undefined
+    
+    const priceVariantsPayload = pricing.priceVariants
+      .filter((v) => v.name.trim() && v.price.trim())
+      .map((v) => ({
+        name: v.name.trim(),
+        price: parsePriceString(v.price) ?? 0,
+      }))
   
     // ── Colours ───────────────────────────────────────────────────────────
   
@@ -883,6 +963,13 @@ import type {
       pricing: {
         exShowroom,
         ...(onRoad !== undefined && { onRoad }),
+        ...(emiStartsFrom !== undefined && { emiStartsFrom }),
+        ...(pricing.priceNotes.trim() && {
+          priceNotes: pricing.priceNotes.trim(),
+        }),
+        ...(priceVariantsPayload.length > 0 && {
+          priceVariants: priceVariantsPayload,
+        }),
       },
   
       heroImageUrl: gallery.heroImageUrl,
@@ -998,6 +1085,17 @@ import type {
         onRoad: bike.pricing.onRoad
           ? bike.pricing.onRoad.toString()
           : '',
+          emiStartsFrom: bike.pricing.emiStartsFrom
+          ? bike.pricing.emiStartsFrom.toString()
+          : '',
+      
+        priceNotes: bike.pricing.priceNotes ?? '',
+      
+        priceVariants: (bike.pricing.priceVariants ?? []).map((v) => ({
+          name: v.name,
+          price: v.price.toString(),
+        })),
+
         colors: (bike.colors ?? []).map((c) => ({
           name:      c.name,
           hex:       c.hex,
