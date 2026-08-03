@@ -56,6 +56,8 @@
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Icon from '@/components/ui/Icon'
+import BikeFormBasic from '@/components/admin/BikeFormBasic'
+import BikeFormSpecifications from '@/components/admin/BikeFormSpecifications'
 import {
   BIKE_FORM_SECTIONS,
   BIKE_FORM_SECTION_LABELS,
@@ -715,6 +717,28 @@ export default function BikeFormShell({
    * A-12:   replace 'seo' case.
    */
   function renderSection(): React.ReactNode {
+    if (activeSection === 'basic') {
+      return (
+        <BikeFormBasic
+          values={values.basic}
+          errors={errors.basic}
+          onChange={updateBasic}
+          excludeId={initialData?._id}
+          disabled={isSubmitting}
+        />
+      )
+    }
+  
+    if (activeSection === 'specs') {
+      return (
+        <BikeFormSpecifications
+          values={values.specs}
+          errors={errors.specs}
+          onChange={updateSpecs}
+          disabled={isSubmitting}
+        />
+      )
+    }
     const stub = SECTION_STUBS[activeSection]
 
     return (

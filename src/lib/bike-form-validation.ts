@@ -1019,4 +1019,82 @@ import type {
         ogImageUrl:      bike.seo?.ogImageUrl       ?? '',
       },
     }
+  }  
+  /*
+ * validateSpecsQuickFields — validates the nine quick-entry spec fields
+ * shown in BikeFormSpecifications (A-08.4).
+ *
+ * These are a curated subset of the full spec fields: the nine that have
+ * the most universal data across Indian motorcycles.
+ *
+ * Returns errors in the same nested shape as validateSpecValues() so the
+ * BikeFormShell can merge them into BikeFormErrors.specs without any
+ * additional reshaping.
+ *
+ * All fields are optional (empty string = not filled in).
+ * Validation rules:
+ *   - Max FIELD_LIMITS.SPEC_FIELD_MAX characters (200) per field
+ *   - No format enforcement — specs are stored as plain strings with units
+ *     included by the admin (e.g. "648 cc", "47 bhp @ 7,150 rpm").
+ */
+export function validateSpecsQuickFields(specs: BikeFormSpecValues): {
+  engine?:     FieldErrors<BikeFormSpecEngineValues>
+  dimensions?: FieldErrors<BikeFormSpecDimensionValues>
+} {
+  const result: {
+    engine?:     FieldErrors<BikeFormSpecEngineValues>
+    dimensions?: FieldErrors<BikeFormSpecDimensionValues>
+  } = {}
+
+  /*
+   * Engine fields shown in BikeFormSpecifications:
+   *   displacement (Engine CC)
+   *   maxPower     (Power)
+   *   maxTorque    (Torque)
+   *   transmission (Transmission)
+   */
+  const engineErrors = validateSpecEngineValues(specs.engine)
+  const engineSubset: FieldErrors<BikeFormSpecEngineValues> = {}
+
+  for (const key of [
+    'displacement',
+    'maxPower',
+    'maxTorque',
+    'transmission',
+  ] as const) {
+    if (engineErrors[key]) {
+      engineSubset[key] = engineErrors[key]
+    }
   }
+
+  if (Object.keys(engineSubset).length > 0) {
+    result.engine = engineSubset
+  }
+
+  /*
+   * Dimension fields shown in BikeFormSpecifications:
+   *   fuelCapacity    (Fuel Tank Capacity)
+   *   seatHeight      (Seat Height)
+   *   groundClearance (Ground Clearance)
+   *   kerbWeight      (Kerb Weight)
+   */
+  const dimensionErrors = validateSpecDimensionValues(specs.dimensions)
+  const dimensionSubset: FieldErrors<BikeFormSpecDimensionValues> = {}
+
+  for (const key of [
+    'fuelCapacity',
+    'seatHeight',
+    'groundClearance',
+    'kerbWeight',
+  ] as const) {
+    if (dimensionErrors[key]) {
+      dimensionSubset[key] = dimensionErrors[key]
+    }
+  }
+
+  if (Object.keys(dimensionSubset).length > 0) {
+    result.dimensions = dimensionSubset
+  }
+
+  return result
+}
