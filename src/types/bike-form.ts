@@ -159,6 +159,7 @@ export interface BikeFormSpecEngineValues {
   fuelSystem:     string   // "Fuel Injection (EFI)"
   coolingType:    string   // "Air + Oil Cooled"
   transmission:   string   // "6-Speed, Constant Mesh"
+  mileage:        string   // "25 kmpl"
   clutch:         string   // "Wet, Multi-plate, Slip & Assist"
   startingSystem: string   // "Electric Start"
   emission:       string   // "OBD2B (BS6 Phase 2)"
@@ -481,6 +482,7 @@ export interface BikeFormSubmitPayload {
       fuelSystem?:     string
       coolingType?:    string
       transmission?:   string
+      mileage?:        string
       clutch?:         string
       startingSystem?: string
       emission?:       string
@@ -577,6 +579,7 @@ export interface BikeFormInitialData {
       fuelSystem?:     string
       coolingType?:    string
       transmission?:   string
+      mileage?:        string
       clutch?:         string
       startingSystem?: string
       emission?:       string
@@ -645,6 +648,7 @@ export const DEFAULT_SPEC_ENGINE_VALUES: BikeFormSpecEngineValues = {
   fuelSystem:     '',
   coolingType:    '',
   transmission:   '',
+  mileage: '',
   clutch:         '',
   startingSystem: '',
   emission:       '',

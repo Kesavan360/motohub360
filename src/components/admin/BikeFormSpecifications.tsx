@@ -151,6 +151,13 @@ const ENGINE_FIELDS: SpecFieldDef[] = [
     hint:        'Total engine displacement including unit, e.g. 648 cc',
   },
   {
+    group: 'engine',
+    key: 'mileage',
+    label: 'Mileage',
+    placeholder: '25 kmpl',
+    hint: 'Claimed mileage including unit, e.g. 25 kmpl',
+  },
+  {
     group:       'engine',
     key:         'maxPower',
     label:       'Power',
