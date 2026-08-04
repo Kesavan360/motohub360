@@ -311,6 +311,14 @@ export interface BikeFormGalleryItem {
   secureUrl:   string
   blurDataUrl?: string
   publicId?:   string
+  altText?: string
+}
+
+export interface BikeFormGalleryErrors {
+  heroImageUrl?: string
+  heroBlurDataUrl?: string
+  video360Url?: string
+  gallery?: Array<{ url?: string; altText?: string } | undefined>
 }
 
 /*
@@ -419,7 +427,7 @@ export interface BikeFormErrors {
     dimensions?: FieldErrors<BikeFormSpecDimensionValues>
   }
   pricing?: BikeFormPricingErrors
-  gallery?: FieldErrors<Pick<BikeFormGalleryValues, 'heroImageUrl'>>
+  gallery?: BikeFormGalleryErrors
   seo?:     FieldErrors<BikeFormSEOValues>
 }
 
@@ -490,6 +498,7 @@ export interface BikeFormSubmitPayload {
     url:          string
     blurDataUrl?: string
     publicId?:    string
+    altText?: string
   }>
 
   /*
@@ -591,6 +600,7 @@ export interface BikeFormInitialData {
     url:          string
     blurDataUrl?: string
     publicId?:    string
+    altText?: string
   }>
 
   colors: Array<{

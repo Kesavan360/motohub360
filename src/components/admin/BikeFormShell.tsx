@@ -59,6 +59,7 @@ import Icon from '@/components/ui/Icon'
 import BikeFormBasic from '@/components/admin/BikeFormBasic'
 import BikeFormSpecifications from '@/components/admin/BikeFormSpecifications'
 import BikeFormPricing from '@/components/admin/BikeFormPricing'
+import BikeFormGallery from '@/components/admin/BikeFormGallery'
 import {
   BIKE_FORM_SECTIONS,
   BIKE_FORM_SECTION_LABELS,

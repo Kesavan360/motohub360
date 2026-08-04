@@ -52,6 +52,7 @@ import type {
     BikeFormSpecValues,
     BikeFormSubmitPayload,
     BikeFormValues,
+    BikeFormGalleryErrors,
     FieldErrors,
   } from '@/types/bike-form'
   import {
@@ -83,8 +84,10 @@ import type {
     VARIANT_NAME_MAX: 100, 
     PRICE_MIN:           10_000,        // ₹10,000 — below this is unrealistic
     PRICE_MAX:           100_000_000,   // ₹10 crore — above this is unrealistic
+    GALLERY_ALT_TEXT_MAX: 200,
+    GALLERY_MAX_IMAGES: 15,
   } as const
-  
+
   /*
    * SLUG_REGEX — validates URL slug format.
    *
@@ -422,6 +425,124 @@ import type {
   
     return null
   }
+
+  /*
+ * validateImageUrl — validates that a URL is well-formed and HTTPS.
+ *
+ * Returns null when value is empty (caller decides required status).
+ * Used for hero, gallery item, thumbnail, and video URL fields.
+ */
+export function validateImageUrl(value: string): string | null {
+  if (!value.trim()) return null
+
+  if (!value.trim().startsWith('https://')) {
+    return 'Image URL must use HTTPS (start with https://).'
+  }
+
+  if (!isValidUrl(value.trim())) {
+    return 'Enter a valid image URL (https://...).'
+  }
+
+  return null
+}
+
+/*
+ * validateHttpsUrl — generic HTTPS URL validator for non-image URLs
+ * (video, thumbnail placeholder). Empty value is valid (optional fields).
+ */
+export function validateHttpsUrl(value: string): string | null {
+  if (!value.trim()) return null
+
+  if (!value.trim().startsWith('https://')) {
+    return 'URL must use HTTPS (start with https://).'
+  }
+
+  if (!isValidUrl(value.trim())) {
+    return 'Enter a valid URL (https://...).'
+  }
+
+  return null
+}
+
+/*
+ * validateHeroGalleryUrl — validates the hero image URL field in the
+ * Gallery section where the admin enters a URL directly (not via upload).
+ *
+ * Required (non-empty) + must be a valid HTTPS URL.
+ * Distinct from validateHeroImageUrl (A-08.1) which only checks non-empty
+ * and is used in the upload-flow validation path.
+ */
+export function validateHeroGalleryUrl(value: string): string | null {
+  if (!value.trim()) {
+    return 'Hero image URL is required.'
+  }
+  return validateImageUrl(value)
+}
+
+/*
+ * validateAltText — validates the optional alt text for a gallery image.
+ *
+ * Optional — empty string is valid.
+ * Max FIELD_LIMITS.GALLERY_ALT_TEXT_MAX characters.
+ * index is 0-based; error message uses 1-based position.
+ */
+export function validateAltText(
+  value: string,
+  index: number,
+): string | null {
+  if (!value) return null
+
+  if (value.length > FIELD_LIMITS.GALLERY_ALT_TEXT_MAX) {
+    return (
+      `Image ${index + 1}: alt text must be ` +
+      `${FIELD_LIMITS.GALLERY_ALT_TEXT_MAX} characters or fewer ` +
+      `(currently ${value.length}).`
+    )
+  }
+
+  return null
+}
+
+/*
+ * validateGalleryItemUrl — validates the URL field of a gallery image.
+ *
+ * Checks:
+ *   1. Non-empty (required when the item row exists).
+ *   2. HTTPS format (via validateImageUrl).
+ *   3. No duplicate across all gallery URLs (checks allUrls at all indices
+ *      except the current index).
+ *
+ * allUrls — array of ALL current gallery secureUrl values (including this
+ * item's own value at `index`). The duplicate check skips index === i.
+ * index is 0-based; error messages use 1-based for human readability.
+ */
+export function validateGalleryItemUrl(
+  value: string,
+  index: number,
+  allUrls: string[],
+): string | null {
+  if (!value.trim()) {
+    return `Image ${index + 1}: URL is required.`
+  }
+
+  const formatErr = validateImageUrl(value)
+  if (formatErr) {
+    return `Image ${index + 1}: ${formatErr.charAt(0).toLowerCase()}${formatErr.slice(1)}`
+  }
+
+  const duplicateAt = allUrls.findIndex(
+    (u, i) => i !== index && u.trim() === value.trim(),
+  )
+  if (duplicateAt !== -1) {
+    return (
+      `Image ${index + 1}: this URL is already used by image ${duplicateAt + 1}. ` +
+      `Duplicate image URLs are not allowed.`
+    )
+  }
+
+  return null
+}
+
   export function validateEmiStartsFrom(value: string): string | null {
     if (!value.trim()) return null
   
@@ -717,20 +838,73 @@ import type {
     return errors
   }
   
+ /*
+ * validateGalleryValues — validates the complete Gallery & Media section.
+ *
+ * Updated in A-08.6 to:
+ *   - Return BikeFormGalleryErrors (replaces the previous narrow type).
+ *   - Validate heroImageUrl format (HTTPS) in addition to non-empty.
+ *   - Validate heroBlurDataUrl HTTPS format if provided.
+ *   - Validate video360Url HTTPS format if provided.
+ *   - Validate each gallery item URL (required + HTTPS + no duplicates).
+ *   - Validate each gallery item altText (optional, max 200 chars).
+ */
+export function validateGalleryValues(
+  values: BikeFormGalleryValues,
+): BikeFormGalleryErrors {
+  const errors: BikeFormGalleryErrors = {}
+
   /*
-   * validateGalleryValues — validates the Gallery section.
-   * Currently only heroImageUrl is required.
+   * Hero image URL — required + HTTPS format.
+   * Uses validateHeroGalleryUrl which combines both checks.
    */
-  export function validateGalleryValues(
-    values: BikeFormGalleryValues,
-  ): FieldErrors<Pick<BikeFormGalleryValues, 'heroImageUrl'>> {
-    const errors: FieldErrors<Pick<BikeFormGalleryValues, 'heroImageUrl'>> = {}
-  
-    const hero = validateHeroImageUrl(values.heroImageUrl)
-    if (hero) errors.heroImageUrl = hero
-  
-    return errors
+  const heroErr = validateHeroGalleryUrl(values.heroImageUrl)
+  if (heroErr) errors.heroImageUrl = heroErr
+
+  /*
+   * Thumbnail / blur placeholder URL — optional, HTTPS if provided.
+   */
+  const thumbErr = validateHttpsUrl(values.heroBlurDataUrl)
+  if (thumbErr) errors.heroBlurDataUrl = thumbErr
+
+  /*
+   * 360° video URL — optional, HTTPS if provided.
+   */
+  const videoErr = validateHttpsUrl(values.video360Url)
+  if (videoErr) errors.video360Url = videoErr
+
+  /*
+   * Gallery items — validate each item's URL and altText.
+   * Build a sparse array aligned by index; undefined at clean positions.
+   */
+  if (values.gallery.length > 0) {
+    const allUrls = values.gallery.map((g) => g.secureUrl)
+    const itemErrors: Array<{ url?: string; altText?: string } | undefined> =
+      []
+    let hasItemErrors = false
+
+    values.gallery.forEach((item, index) => {
+      const urlErr = validateGalleryItemUrl(item.secureUrl, index, allUrls)
+      const altErr = validateAltText(item.altText ?? '', index)
+
+      if (urlErr || altErr) {
+        hasItemErrors = true
+        itemErrors[index] = {
+          ...(urlErr && { url: urlErr }),
+          ...(altErr && { altText: altErr }),
+        }
+      } else {
+        itemErrors[index] = undefined
+      }
+    })
+
+    if (hasItemErrors) {
+      errors.gallery = itemErrors
+    }
   }
+
+  return errors
+}
   
   /*
    * validateSEOValues — validates the SEO section.
@@ -1110,6 +1284,7 @@ import type {
           secureUrl:   g.url,
           blurDataUrl: g.blurDataUrl,
           publicId:    g.publicId,
+          altText: g.altText ?? '',
         })),
         video360Url:     bike.video360Url    ?? '',
       },
