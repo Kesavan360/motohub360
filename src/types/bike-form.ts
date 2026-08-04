@@ -362,9 +362,23 @@ export interface BikeFormGalleryValues {
  * src/app/bikes/[brandSlug]/[slug]/page.tsx (implemented in B-01).
  */
 export interface BikeFormSEOValues {
-  metaTitle:       string
+  metaTitle: string
   metaDescription: string
-  ogImageUrl:      string
+  canonicalUrl: string
+  metaKeywords: string
+  ogTitle: string
+  ogDescription: string
+  ogImageUrl: string
+}
+
+export interface BikeFormSEOErrors {
+  metaTitle?: string
+  metaDescription?: string
+  canonicalUrl?: string
+  metaKeywords?: string
+  ogTitle?: string
+  ogDescription?: string
+  ogImageUrl?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -428,7 +442,7 @@ export interface BikeFormErrors {
   }
   pricing?: BikeFormPricingErrors
   gallery?: BikeFormGalleryErrors
-  seo?:     FieldErrors<BikeFormSEOValues>
+  seo?: BikeFormSEOErrors
 }
 
 /*
@@ -561,9 +575,13 @@ export interface BikeFormSubmitPayload {
    * SEO — entirely omitted when all three fields are empty.
    */
   seo?: {
-    metaTitle?:       string
+    metaTitle?: string
     metaDescription?: string
-    ogImageUrl?:      string
+    canonicalUrl?: string
+    metaKeywords?: string
+    ogTitle?: string
+    ogDescription?: string
+    ogImageUrl?: string
   }
 }
 
@@ -662,9 +680,13 @@ export interface BikeFormInitialData {
   }
 
   seo?: {
-    metaTitle?:       string
+    metaTitle?: string
     metaDescription?: string
-    ogImageUrl?:      string
+    canonicalUrl?: string
+    metaKeywords?: string
+    ogTitle?: string
+    ogDescription?: string
+    ogImageUrl?: string
   }
 }
 
@@ -761,9 +783,13 @@ export const DEFAULT_GALLERY_VALUES: BikeFormGalleryValues = {
 }
 
 export const DEFAULT_SEO_VALUES: BikeFormSEOValues = {
-  metaTitle:       '',
+  metaTitle: '',
   metaDescription: '',
-  ogImageUrl:      '',
+  canonicalUrl: '',
+  metaKeywords: '',
+  ogTitle: '',
+  ogDescription: '',
+  ogImageUrl: '',
 }
 
 /*

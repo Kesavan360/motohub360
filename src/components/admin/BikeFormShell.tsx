@@ -60,6 +60,7 @@ import BikeFormBasic from '@/components/admin/BikeFormBasic'
 import BikeFormSpecifications from '@/components/admin/BikeFormSpecifications'
 import BikeFormPricing from '@/components/admin/BikeFormPricing'
 import BikeFormGallery from '@/components/admin/BikeFormGallery'
+import BikeFormSEO from '@/components/admin/BikeFormSEO'
 import {
   BIKE_FORM_SECTIONS,
   BIKE_FORM_SECTION_LABELS,
@@ -753,18 +754,32 @@ export default function BikeFormShell({
       )
     }
 
-    const stub = SECTION_STUBS[activeSection]
+    if (activeSection === 'gallery') {
+      return (
+        <BikeFormGallery
+          values={values.gallery}
+          errors={errors.gallery}
+          onChange={updateGallery}
+          disabled={isSubmitting}
+        />
+      )
+    }
+    
+    if (activeSection === 'seo') {
+      return (
+        <BikeFormSEO
+          values={values.seo}
+          errors={errors.seo}
+          onChange={updateSEO}
+          disabled={isSubmitting}
+        />
+      )
+    }
 
-    return (
-      <SectionStub
-        sectionKey={activeSection}
-        implementedIn={stub.implementedIn}
-        description={stub.description}
-        fields={stub.fields}
-      />
-    )
+   // Should never happen because all sections are handled above.
+return null
   }
-
+  
   // ── Render ─────────────────────────────────────────────────────────────
 
   return (

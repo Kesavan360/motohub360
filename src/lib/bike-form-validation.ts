@@ -54,6 +54,7 @@ import type {
     BikeFormValues,
     BikeFormGalleryErrors,
     FieldErrors,
+    BikeFormSEOErrors,
   } from '@/types/bike-form'
   import {
     DEFAULT_FORM_VALUES,
@@ -654,36 +655,45 @@ export function validateGalleryItemUrl(
     return null
   }
   
-  /*
-   * validateMetaTitle — validates the optional SEO meta title.
-   *
-   * Optional. Max 60 characters (Google truncates at ~60).
-   * Empty string is valid (auto-generated from bike name + brand).
-   */
-  export function validateMetaTitle(value: string): string | null {
-    if (value.length > FIELD_LIMITS.META_TITLE_MAX) {
-      return (
-        `Meta title must be ${FIELD_LIMITS.META_TITLE_MAX} characters or fewer ` +
-        `(currently ${value.length}).`
-      )
-    }
-    return null
+ /*
+ * validateMetaTitle — validates the SEO Title field.
+ *
+ * A-08.7: now REQUIRED (previously optional in the A-12 stub definition).
+ * Max FIELD_LIMITS.META_TITLE_MAX characters (60).
+ */
+export function validateMetaTitle(value: string): string | null {
+  if (!value.trim()) {
+    return 'SEO title is required.'
   }
+
+  if (value.length > FIELD_LIMITS.META_TITLE_MAX) {
+    return (
+      `SEO title must be ${FIELD_LIMITS.META_TITLE_MAX} characters or fewer ` +
+      `(currently ${value.length}).`
+    )
+  }
+  return null
+}
   
-  /*
-   * validateMetaDescription — validates the optional SEO meta description.
-   *
-   * Optional. Max 160 characters (Google truncates at ~155–160).
-   */
-  export function validateMetaDescription(value: string): string | null {
-    if (value.length > FIELD_LIMITS.META_DESCRIPTION_MAX) {
-      return (
-        `Meta description must be ${FIELD_LIMITS.META_DESCRIPTION_MAX} characters or fewer ` +
-        `(currently ${value.length}).`
-      )
-    }
-    return null
+ /*
+ * validateMetaDescription — validates the Meta Description field.
+ *
+ * A-08.7: now REQUIRED (previously optional in the A-12 stub definition).
+ * Max FIELD_LIMITS.META_DESCRIPTION_MAX characters (160).
+ */
+export function validateMetaDescription(value: string): string | null {
+  if (!value.trim()) {
+    return 'Meta description is required.'
   }
+
+  if (value.length > FIELD_LIMITS.META_DESCRIPTION_MAX) {
+    return (
+      `Meta description must be ${FIELD_LIMITS.META_DESCRIPTION_MAX} characters or fewer ` +
+      `(currently ${value.length}).`
+    )
+  }
+  return null
+}
   
   /*
    * validateOgImageUrl — validates the optional Open Graph image URL.
@@ -694,6 +704,57 @@ export function validateGalleryItemUrl(
     if (value.trim() && !isValidUrl(value)) {
       return 'Enter a valid URL starting with http:// or https://.'
     }
+    return null
+  }
+  
+  export function validateCanonicalUrl(value: string): string | null {
+    if (!value.trim()) return null
+  
+    if (!value.trim().startsWith('https://')) {
+      return 'Canonical URL must use HTTPS (start with https://).'
+    }
+  
+    if (!isValidUrl(value.trim())) {
+      return 'Enter a valid canonical URL (https://...).'
+    }
+  
+    return null
+  }
+
+  export function validateMetaKeywords(value: string): string | null {
+    if (!value.trim()) return null
+  
+    const segments = value.split(',')
+  
+    for (const segment of segments) {
+      const trimmed = segment.trim()
+  
+      if (trimmed.length === 0) {
+        return 'Remove empty entries (e.g. trailing or double commas).'
+      }
+  
+      if (trimmed.length > 60) {
+        return `Each keyword must be 60 characters or fewer ("${trimmed.slice(
+          0,
+          20,
+        )}…" is too long).`
+      }
+    }
+  
+    return null
+  }
+
+  export function validateOgTextField(
+    value: string,
+    label: string,
+    max: number,
+  ): string | null {
+    if (!value.trim()) return null
+  
+    if (value.length > max) {
+      return `${label} must be ${max} characters or fewer (currently ${value.length}).`
+    }
+  
     return null
   }
   
@@ -906,26 +967,49 @@ export function validateGalleryValues(
   return errors
 }
   
-  /*
-   * validateSEOValues — validates the SEO section.
-   * All fields are optional — only max-length constraints.
-   */
-  export function validateSEOValues(
-    values: BikeFormSEOValues,
-  ): FieldErrors<BikeFormSEOValues> {
-    const errors: FieldErrors<BikeFormSEOValues> = {}
-  
-    const metaTitle = validateMetaTitle(values.metaTitle)
-    if (metaTitle) errors.metaTitle = metaTitle
-  
-    const metaDescription = validateMetaDescription(values.metaDescription)
-    if (metaDescription) errors.metaDescription = metaDescription
-  
-    const ogImageUrl = validateOgImageUrl(values.ogImageUrl)
-    if (ogImageUrl) errors.ogImageUrl = ogImageUrl
-  
-    return errors
-  }
+ /*
+ * validateSEOValues — validates the complete SEO section.
+ *
+ * A-08.7: metaTitle and metaDescription are now required.
+ * canonicalUrl, metaKeywords, ogTitle, ogDescription, ogImageUrl remain optional.
+ * Returns BikeFormSEOErrors (replaces the previous FieldErrors<BikeFormSEOValues>).
+ */
+export function validateSEOValues(
+  values: BikeFormSEOValues,
+): BikeFormSEOErrors {
+  const errors: BikeFormSEOErrors = {}
+
+  const metaTitle = validateMetaTitle(values.metaTitle)
+  if (metaTitle) errors.metaTitle = metaTitle
+
+  const metaDescription = validateMetaDescription(values.metaDescription)
+  if (metaDescription) errors.metaDescription = metaDescription
+
+  const canonicalUrl = validateCanonicalUrl(values.canonicalUrl)
+  if (canonicalUrl) errors.canonicalUrl = canonicalUrl
+
+  const metaKeywords = validateMetaKeywords(values.metaKeywords)
+  if (metaKeywords) errors.metaKeywords = metaKeywords
+
+  const ogTitle = validateOgTextField(
+    values.ogTitle,
+    'Open Graph title',
+    FIELD_LIMITS.META_TITLE_MAX,
+  )
+  if (ogTitle) errors.ogTitle = ogTitle
+
+  const ogDescription = validateOgTextField(
+    values.ogDescription,
+    'Open Graph description',
+    FIELD_LIMITS.META_DESCRIPTION_MAX,
+  )
+  if (ogDescription) errors.ogDescription = ogDescription
+
+  const ogImageUrl = validateOgImageUrl(values.ogImageUrl)
+  if (ogImageUrl) errors.ogImageUrl = ogImageUrl
+
+  return errors
+}
   
   /*
    * validateAllSections — runs all section validators and returns the complete
@@ -1108,21 +1192,29 @@ export function validateGalleryValues(
       features.ridingModes = featureInput.ridingModes
     }
   
-    // ── SEO — omit entirely if all fields empty ───────────────────────────
-  
-    const seoPayload:
-      | BikeFormSubmitPayload['seo']
-      | undefined = (
-      seo.metaTitle.trim() ||
-      seo.metaDescription.trim() ||
-      seo.ogImageUrl.trim()
-    )
-      ? {
-          ...(seo.metaTitle.trim()       && { metaTitle:       seo.metaTitle.trim() }),
-          ...(seo.metaDescription.trim() && { metaDescription: seo.metaDescription.trim() }),
-          ...(seo.ogImageUrl.trim()      && { ogImageUrl:      seo.ogImageUrl.trim() }),
-        }
-      : undefined
+   // ── SEO — omit entirely if all fields empty ───────────────────────────
+
+const seoPayload:
+| BikeFormSubmitPayload['seo']
+| undefined = (
+seo.metaTitle.trim()       ||
+seo.metaDescription.trim() ||
+seo.canonicalUrl.trim()    ||
+seo.metaKeywords.trim()    ||
+seo.ogTitle.trim()         ||
+seo.ogDescription.trim()   ||
+seo.ogImageUrl.trim()
+)
+? {
+    ...(seo.metaTitle.trim()       && { metaTitle:       seo.metaTitle.trim() }),
+    ...(seo.metaDescription.trim() && { metaDescription: seo.metaDescription.trim() }),
+    ...(seo.canonicalUrl.trim()    && { canonicalUrl:    seo.canonicalUrl.trim() }),
+    ...(seo.metaKeywords.trim()    && { metaKeywords:    seo.metaKeywords.trim() }),
+    ...(seo.ogTitle.trim()         && { ogTitle:         seo.ogTitle.trim() }),
+    ...(seo.ogDescription.trim()   && { ogDescription:   seo.ogDescription.trim() }),
+    ...(seo.ogImageUrl.trim()      && { ogImageUrl:      seo.ogImageUrl.trim() }),
+  }
+: undefined
   
     // ── Assemble payload ─────────────────────────────────────────────────
   
@@ -1292,7 +1384,11 @@ export function validateGalleryValues(
       seo: {
         metaTitle:       bike.seo?.metaTitle       ?? '',
         metaDescription: bike.seo?.metaDescription ?? '',
-        ogImageUrl:      bike.seo?.ogImageUrl       ?? '',
+        canonicalUrl:    bike.seo?.canonicalUrl    ?? '',
+        metaKeywords:    bike.seo?.metaKeywords    ?? '',
+        ogTitle:         bike.seo?.ogTitle         ?? '',
+        ogDescription:   bike.seo?.ogDescription   ?? '',
+        ogImageUrl:      bike.seo?.ogImageUrl      ?? '',
       },
     }
   }  
