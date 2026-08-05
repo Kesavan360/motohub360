@@ -85,6 +85,7 @@ import {
   type DragEvent,
 } from 'react'
 import Icon from '@/components/ui/Icon'
+import MediaUploader from '@/components/admin/MediaUploader'
 import {
   validateHeroGalleryUrl,
   validateHttpsUrl,
@@ -131,6 +132,9 @@ export interface BikeFormGalleryProps {
    * disabled — all inputs and buttons are inert when true (form is submitting).
    */
   disabled?: boolean
+
+  brandSlug: string
+  slug: string
 }
 
 // ---------------------------------------------------------------------------
@@ -368,6 +372,8 @@ export default function BikeFormGallery({
   errors,
   onChange,
   disabled = false,
+  brandSlug,
+  slug,
 }: BikeFormGalleryProps) {
 
   // ── Local error state ──────────────────────────────────────────────────

@@ -761,6 +761,8 @@ export default function BikeFormShell({
           errors={errors.gallery}
           onChange={updateGallery}
           disabled={isSubmitting}
+          brandSlug={values.basic.brandSlug}
+          slug={values.basic.slug}
         />
       )
     }
