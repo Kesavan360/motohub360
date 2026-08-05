@@ -1091,31 +1091,25 @@ export default function BikeFormGallery({
                 required
               />
 
-              <input
-                id="bfg-heroImageUrl"
-                type="url"
-                value={values.heroImageUrl}
-                onChange={handleHeroUrlChange}
-                onBlur={handleHeroUrlBlur}
-                disabled={disabled}
-                placeholder="https://res.cloudinary.com/your-cloud/image/upload/..."
-                className="admin-input"
-                style={{
-                  width:      '100%',
-                  boxSizing:  'border-box',
-                  ...(mergedHeroImageUrl && { borderColor: '#C8102E' }),
-                }}
-                aria-describedby={[
-                  'bfg-heroImageUrl-hint',
-                  mergedHeroImageUrl ? 'bfg-heroImageUrl-error' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ') || undefined}
-                aria-required="true"
-                aria-invalid={!!mergedHeroImageUrl}
-                autoComplete="off"
-                spellCheck={false}
-              />
+<MediaUploader
+  intent="bike_hero"
+  brandSlug={brandSlug}
+  slug={slug}
+  currentUrl={values.heroImageUrl}
+  disabled={disabled}
+  onUploadComplete={(result, blurDataUrl) => {
+    onChange({
+      ...values,
+      heroImageUrl: result.secure_url,
+      heroBlurDataUrl:
+  blurDataUrl ?? values.heroBlurDataUrl,
+    })
+    setLocalErrors(prev => ({
+      ...prev,
+      heroImageUrl: undefined,
+    }))
+  }}
+/>
 
               {!mergedHeroImageUrl && (
                 <p
@@ -1127,7 +1121,7 @@ export default function BikeFormGallery({
                     margin:     '5px 0 0',
                   }}
                 >
-                  Primary motorcycle photograph. Must be an HTTPS URL.
+                  Primary motorcycle photograph. Minimum 1200 × 900px. Upload via drag-and-drop or browse.
                   Use the media edit page to upload and get the Cloudinary URL.
                 </p>
               )}
