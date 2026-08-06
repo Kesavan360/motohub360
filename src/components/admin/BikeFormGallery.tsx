@@ -522,6 +522,50 @@ export default function BikeFormGallery({
   // ── Gallery item: add / remove ────────────────────────────────────────
 
   /*
+ * handleGalleryAltChange — updates the alt text
+ * of a gallery item.
+ */
+const handleGalleryAltChange = useCallback(
+  (index: number, altText: string): void => {
+    onChange({
+      ...values,
+      gallery: values.gallery.map((item, i) =>
+        i === index
+          ? {
+              ...item,
+              altText,
+            }
+          : item,
+      ),
+    })
+  },
+  [values, onChange],
+)
+
+/*
+ * handleGalleryAltBlur — validates the alt text
+ * of the gallery item.
+ */
+const handleGalleryAltBlur = useCallback(
+  (index: number): void => {
+    const item = values.gallery[index]
+    if (!item) return
+
+    const err = validateAltText(item.altText ?? '', index)
+
+    setLocalGalleryErrors((prev) => {
+      const next = [...prev]
+      next[index] = {
+        ...next[index],
+        altText: err ?? undefined,
+      }
+      return next
+    })
+  },
+  [values.gallery],
+)
+
+  /*
    * handleAddGalleryItem — appends a blank item row.
    * Capped at MAX_GALLERY_IMAGES.
    */
@@ -1229,18 +1273,88 @@ export default function BikeFormGallery({
     )}
     maxImages={MAX_GALLERY_IMAGES}
     onChange={(items: GalleryChangeItem[]) => {
+      const altTextByUrl = new Map(
+        values.gallery.map((g) => [g.secureUrl, g.altText ?? '']),
+      )
+    
       onChange({
         ...values,
-        gallery: items.map((item, index) => ({
+        gallery: items.map((item) => ({
           secureUrl: item.secureUrl,
           blurDataUrl: item.blurDataUrl ?? '',
           publicId: item.publicId,
-          altText: values.gallery[index]?.altText ?? '',
+          altText: altTextByUrl.get(item.secureUrl) ?? '',
         })),
       })
     }}
     disabled={disabled}
   />
+ {values.gallery.length > 0 && (
+  <div style={{ marginTop: '16px' }}>
+    <p
+      style={{
+        fontFamily: 'var(--font-body)',
+        fontSize: '11px',
+        fontWeight: 600,
+        letterSpacing: '0.07em',
+        textTransform: 'uppercase',
+        color: 'var(--color-ink-tertiary)',
+        margin: '0 0 10px',
+      }}
+    >
+      Alt Text
+    </p>
+
+    {values.gallery.map((item, index) => {
+      const altErr = mergedGalleryErrors[index]?.altText
+      const inputId = `bfg-gallery-alt-${index}`
+      const errId = `bfg-gallery-alt-err-${index}`
+
+      return (
+        <div
+          key={item.publicId ?? item.secureUrl ?? index}
+          style={{
+            marginBottom: '12px',
+          }}
+        >
+          <FieldLabel
+            htmlFor={inputId}
+            label={`Image ${index + 1} Alt Text`}
+            current={(item.altText ?? '').length}
+            max={FIELD_LIMITS.ALT_TEXT_MAX}
+          />
+
+          <input
+            id={inputId}
+            type="text"
+            value={item.altText ?? ''}
+            onChange={(e) =>
+              handleGalleryAltChange(index, e.target.value)
+            }
+            onBlur={() => handleGalleryAltBlur(index)}
+            disabled={disabled}
+            placeholder="Describe this image for accessibility"
+            className="admin-input"
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              ...(altErr && { borderColor: '#C8102E' }),
+            }}
+            aria-invalid={!!altErr}
+            aria-describedby={altErr ? errId : undefined}
+            maxLength={FIELD_LIMITS.ALT_TEXT_MAX}
+          />
+
+          <FieldError
+            id={errId}
+            message={altErr}
+          />
+        </div>
+      )
+    })}
+  </div>
+)}
+ 
 </section>
 
 <div className="bfg-divider" aria-hidden="true" />

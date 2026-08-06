@@ -87,6 +87,7 @@ import type {
     PRICE_MAX:           100_000_000,   // ₹10 crore — above this is unrealistic
     GALLERY_ALT_TEXT_MAX: 200,
     GALLERY_MAX_IMAGES: 15,
+    ALT_TEXT_MAX: 200,
   } as const
 
   /*
