@@ -86,6 +86,11 @@ import {
 } from 'react'
 import Icon from '@/components/ui/Icon'
 import MediaUploader from '@/components/admin/MediaUploader'
+import GalleryUploader from '@/components/admin/GalleryUploader'
+import type {
+  GalleryChangeItem,
+  GalleryInitialItem,
+} from '@/components/admin/GalleryUploader'
 import {
   validateHeroGalleryUrl,
   validateHttpsUrl,
@@ -1202,349 +1207,43 @@ export default function BikeFormGallery({
         <div className="bfg-divider" aria-hidden="true" />
 
         {/* ── Section 2: Gallery Images ──────────────────────────── */}
-        <section aria-label="Gallery images">
-          <p className="bfg-group-label">
-            Gallery Images
-            {/*
-             * Count badge — shows the current count and the maximum.
-             * Helps the admin understand how many more images they can add.
-             */}
-            <span
-              className="bfg-count-badge"
-              aria-label={`${values.gallery.length} of ${MAX_GALLERY_IMAGES} gallery images`}
-            >
-              {values.gallery.length} / {MAX_GALLERY_IMAGES}
-            </span>
-          </p>
+<section aria-label="Gallery images">
+  <p className="bfg-group-label">
+    Gallery Images
+    <span
+      className="bfg-count-badge"
+      aria-label={`${values.gallery.length} of ${MAX_GALLERY_IMAGES} gallery images`}
+    >
+      {values.gallery.length} / {MAX_GALLERY_IMAGES}
+    </span>
+  </p>
 
-          {/* Empty state — shown when no gallery images have been added */}
-          {values.gallery.length === 0 && (
-            <div className="bfg-empty-state">
-              <p
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize:   '13px',
-                  color:      'var(--color-ink-tertiary)',
-                  margin:     0,
-                  lineHeight: 1.5,
-                }}
-              >
-                No gallery images added.
-                <br />
-                Add images to show the motorcycle from multiple angles.
-              </p>
-            </div>
-          )}
+  <GalleryUploader
+    brandSlug={brandSlug}
+    slug={slug}
+    initialItems={values.gallery.map(
+      (item): GalleryInitialItem => ({
+        secureUrl: item.secureUrl,
+        blurDataUrl: item.blurDataUrl,
+      }),
+    )}
+    maxImages={MAX_GALLERY_IMAGES}
+    onChange={(items: GalleryChangeItem[]) => {
+      onChange({
+        ...values,
+        gallery: items.map((item, index) => ({
+          secureUrl: item.secureUrl,
+          blurDataUrl: item.blurDataUrl ?? '',
+          publicId: item.publicId,
+          altText: values.gallery[index]?.altText ?? '',
+        })),
+      })
+    }}
+    disabled={disabled}
+  />
+</section>
 
-          {/*
-           * Gallery item cards — one per gallery image.
-           * Each card: [≡ drag handle] [thumbnail preview] [inputs] [× remove]
-           * The card is the drag container (draggable="true").
-           */}
-          {values.gallery.map((item, index) => {
-            const isDragging = draggingIndex === index
-            const isDragOver = dragOverIndex === index
-            const itemErr    = mergedGalleryErrors[index] ?? {}
-            const urlId      = `bfg-item-url-${index}`
-            const altId      = `bfg-item-alt-${index}`
-
-            return (
-              <div
-                key={index}
-                draggable={!disabled}
-                onDragStart={(e) => handleItemDragStart(e, index)}
-                onDragEnter={(e) => handleItemDragEnter(e, index)}
-                onDragOver={handleItemDragOver}
-                onDragLeave={handleItemDragLeave}
-                onDrop={(e) => handleItemDrop(e, index)}
-                onDragEnd={handleItemDragEnd}
-                className={[
-                  'bfg-item-card',
-                  isDragging ? 'bfg-item-card--dragging' : '',
-                  isDragOver ? 'bfg-item-card--drag-over' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                role="listitem"
-                aria-label={
-                  `Gallery image ${index + 1}` +
-                  (!disabled ? '. Drag to reorder.' : '')
-                }
-              >
-                {/* Drag-over insertion indicator */}
-                {isDragOver && (
-                  <div className="bfg-insert-bar" aria-hidden="true" />
-                )}
-
-                {/* Drag handle */}
-                {!disabled && (
-                  <div
-                    className="bfg-drag-handle"
-                    aria-hidden="true"
-                    title="Drag to reorder"
-                  >
-                    {/*
-                     * Three-line (hamburger) icon — universally understood
-                     * as a drag handle affordance.
-                     */}
-                    <svg
-                      width="13"
-                      height="13"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      aria-hidden="true"
-                    >
-                      <line x1="3" y1="7"  x2="21" y2="7"  />
-                      <line x1="3" y1="12" x2="21" y2="12" />
-                      <line x1="3" y1="17" x2="21" y2="17" />
-                    </svg>
-                  </div>
-                )}
-
-                {/* Inputs area: preview + URL input + alt text input */}
-                <div className="bfg-item-inputs">
-
-                  {/* URL row: thumbnail preview on left, input on right */}
-                  <div className="bfg-item-url-row">
-                    {/*
-                     * Per-item thumbnail preview.
-                     * size=56: compact — enough to see the image at a glance.
-                     * Position badge overlaid showing 1-based index.
-                     */}
-                    <div style={{ position: 'relative', flexShrink: 0 }}>
-                      <ImagePreview
-                        url={item.secureUrl}
-                        alt={item.altText || `Gallery image ${index + 1} preview`}
-                        size={56}
-                        isBroken={brokenUrls.has(item.secureUrl.trim())}
-                        onError={handleImageError}
-                      />
-                      <span
-                        className="bfg-position-badge"
-                        aria-hidden="true"
-                      >
-                        {index + 1}
-                      </span>
-                    </div>
-
-                    {/* URL input */}
-                    <div className="bfg-item-url-input">
-                      <label
-                        htmlFor={urlId}
-                        className="bfg-sub-label"
-                      >
-                        Image URL
-                        <span
-                          aria-hidden="true"
-                          style={{ color: '#C8102E', marginLeft: '3px' }}
-                        >
-                          *
-                        </span>
-                      </label>
-
-                      <input
-                        id={urlId}
-                        type="url"
-                        value={item.secureUrl}
-                        placeholder="https://res.cloudinary.com/..."
-                        disabled={disabled}
-                        className="admin-input"
-                        style={{
-                          width:     '100%',
-                          boxSizing: 'border-box',
-                          ...(itemErr.url && { borderColor: '#C8102E' }),
-                        }}
-                        onChange={(e) =>
-                          handleGalleryItemChange(
-                            index,
-                            'secureUrl',
-                            e.target.value,
-                          )
-                        }
-                        onBlur={() => handleGalleryItemBlur(index, 'secureUrl')}
-                        aria-describedby={
-                          itemErr.url ? `${urlId}-error` : undefined
-                        }
-                        aria-invalid={!!itemErr.url}
-                        aria-required="true"
-                        autoComplete="off"
-                        spellCheck={false}
-                      />
-
-                      <FieldError
-                        id={`${urlId}-error`}
-                        message={itemErr.url}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Alt Text input — full width below the URL row */}
-                  <div>
-                    <div
-                      style={{
-                        display:        'flex',
-                        alignItems:     'baseline',
-                        justifyContent: 'space-between',
-                        marginBottom:   '4px',
-                      }}
-                    >
-                      <label
-                        htmlFor={altId}
-                        className="bfg-sub-label"
-                        style={{ margin: 0 }}
-                      >
-                        Alt Text
-                      </label>
-
-                      {/*
-                       * Character counter for alt text.
-                       * Alt text is optional but encouraged for accessibility.
-                       */}
-                      <span
-                        aria-live="polite"
-                        style={{
-                          fontFamily: 'var(--font-mono)',
-                          fontSize:   '10px',
-                          color:
-                            (item.altText?.length ?? 0) >
-                            FIELD_LIMITS.GALLERY_ALT_TEXT_MAX
-                              ? '#C8102E'
-                              : (item.altText?.length ?? 0) >
-                                FIELD_LIMITS.GALLERY_ALT_TEXT_MAX * 0.85
-                              ? '#B45309'
-                              : 'var(--color-ink-tertiary)',
-                        }}
-                      >
-                        {item.altText?.length ?? 0} / {FIELD_LIMITS.GALLERY_ALT_TEXT_MAX}
-                      </span>
-                    </div>
-
-                    <input
-                      id={altId}
-                      type="text"
-                      value={item.altText ?? ''}
-                      placeholder={`e.g. Royal Enfield GT 650 — left profile view`}
-                      disabled={disabled}
-                      maxLength={FIELD_LIMITS.GALLERY_ALT_TEXT_MAX + 10}
-                      className="admin-input"
-                      style={{
-                        width:     '100%',
-                        boxSizing: 'border-box',
-                        ...(itemErr.altText && { borderColor: '#C8102E' }),
-                      }}
-                      onChange={(e) =>
-                        handleGalleryItemChange(
-                          index,
-                          'altText',
-                          e.target.value,
-                        )
-                      }
-                      onBlur={() => handleGalleryItemBlur(index, 'altText')}
-                      aria-describedby={
-                        itemErr.altText ? `${altId}-error` : undefined
-                      }
-                      aria-invalid={!!itemErr.altText}
-                      autoComplete="off"
-                    />
-
-                    <FieldError
-                      id={`${altId}-error`}
-                      message={itemErr.altText}
-                    />
-                  </div>
-                </div>
-
-                {/* Remove button */}
-                <button
-                  type="button"
-                  className="bfg-remove-btn"
-                  onClick={() => handleRemoveGalleryItem(index)}
-                  disabled={disabled}
-                  aria-label={
-                    `Remove gallery image ${index + 1}` +
-                    (item.secureUrl ? ` (${item.secureUrl.split('/').pop()})` : '')
-                  }
-                  onMouseDown={(e) => {
-                    /*
-                     * Prevent mousedown from being interpreted as the start
-                     * of a drag on the parent card. Without this, clicking
-                     * the remove button on a browser that fires dragstart on
-                     * mousedown would initiate a card drag instead of a remove.
-                     */
-                    e.stopPropagation()
-                  }}
-                >
-                  <Icon name="close" size={11} strokeWidth={2.5} />
-                </button>
-              </div>
-            )
-          })}
-
-          {/* Add Image button */}
-          <div>
-            {canAddImage ? (
-              <button
-                type="button"
-                className="bfg-add-btn"
-                onClick={handleAddGalleryItem}
-                aria-label="Add a gallery image"
-              >
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  aria-hidden="true"
-                >
-                  <line x1="12" y1="5" x2="12" y2="19" />
-                  <line x1="5"  y1="12" x2="19" y2="12" />
-                </svg>
-                Add Image
-              </button>
-            ) : (
-              <p
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize:   '12px',
-                  color:      'var(--color-ink-tertiary)',
-                  margin:     '4px 0 0',
-                }}
-              >
-                Maximum of {MAX_GALLERY_IMAGES} gallery images reached.
-              </p>
-            )}
-          </div>
-
-          {/* Drag-to-reorder hint — shown when multiple images exist */}
-          {values.gallery.length > 1 && !disabled && (
-            <div className="bfg-drag-hint" aria-hidden="true">
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                aria-hidden="true"
-              >
-                <line x1="3" y1="7"  x2="21" y2="7"  />
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="17" x2="21" y2="17" />
-              </svg>
-              Drag cards to reorder gallery images
-            </div>
-          )}
-        </section>
-
-        <div className="bfg-divider" aria-hidden="true" />
-
+<div className="bfg-divider" aria-hidden="true" />
         {/* ── Section 3: 360° Video ──────────────────────────────── */}
         <section aria-label="360 degree spin video">
           <p className="bfg-group-label">360° Spin Video</p>
