@@ -708,6 +708,22 @@ export function validateMetaDescription(value: string): string | null {
     return null
   }
   
+  /*
+ * validateTwitterImageUrl — validates the optional Twitter / X Card image URL.
+ *
+ * Optional — empty string is valid.
+ * When provided, must be a valid HTTP/HTTPS URL.
+ *
+ * Added in A-09.5.
+ */
+export function validateTwitterImageUrl(value: string): string | null {
+  if (value.trim() && !isValidUrl(value.trim())) {
+    return 'Enter a valid URL starting with http:// or https://.'
+  }
+
+  return null
+}
+
   export function validateCanonicalUrl(value: string): string | null {
     if (!value.trim()) return null
   
@@ -1009,6 +1025,14 @@ export function validateSEOValues(
   const ogImageUrl = validateOgImageUrl(values.ogImageUrl)
   if (ogImageUrl) errors.ogImageUrl = ogImageUrl
 
+  const twitterImageUrl = validateTwitterImageUrl(
+    values.twitterImageUrl,
+  )
+  
+  if (twitterImageUrl) {
+    errors.twitterImageUrl = twitterImageUrl
+  }
+
   return errors
 }
   
@@ -1195,27 +1219,45 @@ export function validateSEOValues(
   
    // ── SEO — omit entirely if all fields empty ───────────────────────────
 
-const seoPayload:
-| BikeFormSubmitPayload['seo']
-| undefined = (
-seo.metaTitle.trim()       ||
-seo.metaDescription.trim() ||
-seo.canonicalUrl.trim()    ||
-seo.metaKeywords.trim()    ||
-seo.ogTitle.trim()         ||
-seo.ogDescription.trim()   ||
-seo.ogImageUrl.trim()
-)
-? {
-    ...(seo.metaTitle.trim()       && { metaTitle:       seo.metaTitle.trim() }),
-    ...(seo.metaDescription.trim() && { metaDescription: seo.metaDescription.trim() }),
-    ...(seo.canonicalUrl.trim()    && { canonicalUrl:    seo.canonicalUrl.trim() }),
-    ...(seo.metaKeywords.trim()    && { metaKeywords:    seo.metaKeywords.trim() }),
-    ...(seo.ogTitle.trim()         && { ogTitle:         seo.ogTitle.trim() }),
-    ...(seo.ogDescription.trim()   && { ogDescription:   seo.ogDescription.trim() }),
-    ...(seo.ogImageUrl.trim()      && { ogImageUrl:      seo.ogImageUrl.trim() }),
-  }
-: undefined
+   const seoPayload:
+   | BikeFormSubmitPayload['seo']
+   | undefined = (
+   seo.metaTitle.trim() ||
+   seo.metaDescription.trim() ||
+   seo.canonicalUrl.trim() ||
+   seo.metaKeywords.trim() ||
+   seo.ogTitle.trim() ||
+   seo.ogDescription.trim() ||
+   seo.ogImageUrl.trim() ||
+   seo.twitterImageUrl.trim() 
+ )
+   ? {
+       ...(seo.metaTitle.trim() && {
+         metaTitle: seo.metaTitle.trim(),
+       }),
+       ...(seo.metaDescription.trim() && {
+         metaDescription: seo.metaDescription.trim(),
+       }),
+       ...(seo.canonicalUrl.trim() && {
+         canonicalUrl: seo.canonicalUrl.trim(),
+       }),
+       ...(seo.metaKeywords.trim() && {
+         metaKeywords: seo.metaKeywords.trim(),
+       }),
+       ...(seo.ogTitle.trim() && {
+         ogTitle: seo.ogTitle.trim(),
+       }),
+       ...(seo.ogDescription.trim() && {
+         ogDescription: seo.ogDescription.trim(),
+       }),
+       ...(seo.ogImageUrl.trim() && {
+         ogImageUrl: seo.ogImageUrl.trim(),
+       }),
+       ...(seo.twitterImageUrl.trim() && {
+         twitterImageUrl: seo.twitterImageUrl.trim(),
+       }),
+     }
+   : undefined
   
     // ── Assemble payload ─────────────────────────────────────────────────
   
@@ -1390,6 +1432,7 @@ seo.ogImageUrl.trim()
         ogTitle:         bike.seo?.ogTitle         ?? '',
         ogDescription:   bike.seo?.ogDescription   ?? '',
         ogImageUrl:      bike.seo?.ogImageUrl      ?? '',
+        twitterImageUrl: bike.seo?.twitterImageUrl ?? '',
       },
     }
   }  

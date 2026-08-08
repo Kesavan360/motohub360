@@ -1,48 +1,41 @@
 'use client'
 
 /*
- * BikeFormSEO — Search Engine Optimisation section of the BikeForm.
+ * BikeFormSEO — SEO section of the BikeForm.
  *
- * MPD Task A-08.7:
- *   "SEO: SEO Title (required, max 60), Meta Description (required, max 160),
- *   Canonical URL (optional, HTTPS), Meta Keywords (optional, comma-separated),
- *   Open Graph Title (optional), Open Graph Description (optional),
- *   Open Graph Image URL (optional, HTTPS). Controlled inputs, blur validation,
- *   character counters, parent error merging exactly like BikeFormBasic."
+ * MPD Task A-09.5:
+ *   "SEO: SEO Title, Meta Description, Canonical URL, Open Graph Image URL,
+ *   Twitter Image URL, Structured Data Preview."
  *
  * FIELDS:
- *   metaTitle       — SEO Title (required, ≤ 60 chars)
- *   metaDescription — Meta Description (required, ≤ 160 chars)
- *   canonicalUrl    — Canonical URL (optional, HTTPS)
- *   metaKeywords    — Meta Keywords (optional, comma-separated)
- *   ogTitle         — Open Graph Title (optional, ≤ 60 chars, falls back to metaTitle)
- *   ogDescription   — Open Graph Description (optional, ≤ 160 chars, falls back to metaDescription)
- *   ogImageUrl      — Open Graph Image URL (optional, HTTPS, falls back to heroImageUrl)
+ *   metaTitle       — required, max META_TITLE_MAX (60) chars
+ *   metaDescription — required, max META_DESCRIPTION_MAX (160) chars, textarea
+ *   canonicalUrl    — optional, valid URL if provided
+ *   metaKeywords    — optional, comma-separated
+ *   ogTitle         — optional, max META_TITLE_MAX chars
+ *   ogDescription   — optional, max META_DESCRIPTION_MAX chars
+ *   ogImageUrl      — optional, valid URL if provided, live preview
+ *   twitterImageUrl — optional, valid URL if provided, live preview (A-09.5)
  *
- * FALLBACK BEHAVIOUR (documented, enforced server-side / at render time —
- * NOT enforced in this component):
- *   When ogTitle is empty, the public bike page's generateMetadata()
- *   uses metaTitle instead. Same pattern for ogDescription → metaDescription
- *   and ogImageUrl → heroImageUrl. This component only collects the override
- *   values; it does not compute or preview the fallback.
- *
- * SEARCH RESULT PREVIEW:
- *   A lightweight Google-style search snippet preview is rendered above the
- *   SEO Title field, updating live as the admin types. This gives immediate
- *   visual feedback on how the title/description will appear in search
- *   results, reinforcing the character limits without requiring the admin
- *   to count characters manually.
+ * STRUCTURED DATA PREVIEW:
+ *   Read-only JSON-LD block generated from current values.
+ *   Auto-populates fallbacks (ogTitle → metaTitle, twitterImageUrl → ogImageUrl).
+ *   No editing — purely informational.
  *
  * VALIDATION PATTERN:
- *   Identical structure to BikeFormBasic, BikeFormSpecifications,
- *   BikeFormPricing, and BikeFormGallery:
+ *   Identical to BikeFormBasic, BikeFormPricing, BikeFormGallery:
  *     - Local blur errors stored in localErrors state.
- *     - Parent errors (BikeFormSEOErrors from BikeFormShell's last full
- *       section validation) passed via the errors prop.
+ *     - Parent errors (BikeFormSEOErrors from BikeFormShell) in errors prop.
  *     - Merged before render; local errors take precedence (most current).
  *
+ * IMAGE PREVIEW:
+ *   OG Image and Twitter Image share the same ImagePreview sub-component.
+ *   Previews use regular <img> (not Next.js Image) — admin context, URLs
+ *   are external/Cloudinary and not configured in next.config.ts remotePatterns.
+ *   Broken URLs tracked per URL string in brokenUrls Set.
+ *
  * WHY 'use client':
- *   useState (localErrors)
+ *   useState (localErrors, brokenUrls)
  *   useCallback (field change/blur handlers)
  *   Event handlers (onChange, onBlur)
  */
@@ -56,6 +49,7 @@ import {
   validateMetaKeywords,
   validateOgTextField,
   validateOgImageUrl,
+  validateTwitterImageUrl,
   FIELD_LIMITS,
 } from '@/lib/bike-form-validation'
 import type {
@@ -69,7 +63,7 @@ import type {
 
 export interface BikeFormSEOProps {
   /*
-   * values — the current SEO state from BikeFormShell (values.seo).
+   * values — current SEO section state from BikeFormShell (values.seo).
    */
   values: BikeFormSEOValues
 
@@ -86,13 +80,14 @@ export interface BikeFormSEOProps {
   onChange: (values: BikeFormSEOValues) => void
 
   /*
-   * disabled — all inputs are read-only and inert when true.
+   * disabled — all inputs are inert when true (form is submitting).
    */
   disabled?: boolean
 }
 
 // ---------------------------------------------------------------------------
-// FieldLabel — identical pattern to all other BikeForm section components
+// FieldLabel — label + optional char counter
+// Identical pattern to BikeFormBasic, BikeFormPricing, BikeFormGallery.
 // ---------------------------------------------------------------------------
 
 interface FieldLabelProps {
@@ -159,7 +154,8 @@ function FieldLabel({
 }
 
 // ---------------------------------------------------------------------------
-// FieldError — identical pattern to all other BikeForm section components
+// FieldError — inline error message
+// Identical pattern across all BikeForm section components.
 // ---------------------------------------------------------------------------
 
 interface FieldErrorProps {
@@ -195,6 +191,149 @@ function FieldError({ id, message }: FieldErrorProps) {
 }
 
 // ---------------------------------------------------------------------------
+// ImagePreview — live thumbnail for an optional image URL field
+// ---------------------------------------------------------------------------
+
+interface ImagePreviewProps {
+  url:      string
+  alt:      string
+  isBroken: boolean
+  onError:  (url: string) => void
+}
+
+function ImagePreview({ url, alt, isBroken, onError }: ImagePreviewProps) {
+  const trimmed = url.trim()
+  const hasUrl  = trimmed.length > 0
+  const isValid = hasUrl && /^https?:\/\/.+\..+/.test(trimmed)
+  const showImg = isValid && !isBroken
+
+  const containerStyle: React.CSSProperties = {
+    width:           '100%',
+    height:          160,
+    borderRadius:    8,
+    overflow:        'hidden',
+    border:          '1px solid var(--color-border-hairline)',
+    backgroundColor: 'var(--color-surface-sunken)',
+    display:         'flex',
+    alignItems:      'center',
+    justifyContent:  'center',
+    marginTop:       '8px',
+  }
+
+  if (!hasUrl) return null
+
+  if (showImg) {
+    return (
+      <div style={containerStyle} aria-hidden="true">
+        {/*
+         * Regular <img> for admin preview — not Next.js Image.
+         * See component header for rationale.
+         */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={trimmed}
+          alt={alt}
+          onError={() => onError(trimmed)}
+          draggable={false}
+          style={{
+            width:         '100%',
+            height:        '100%',
+            objectFit:     'cover',
+            display:       'block',
+            pointerEvents: 'none',
+          }}
+        />
+      </div>
+    )
+  }
+
+  /*
+   * Invalid URL or failed load — show a contextual placeholder.
+   */
+  return (
+    <div style={containerStyle} aria-hidden="true">
+      <div
+        style={{
+          display:        'flex',
+          flexDirection:  'column',
+          alignItems:     'center',
+          gap:            '6px',
+          color:          isBroken ? '#C8102E' : 'var(--color-ink-tertiary)',
+          opacity:        0.65,
+        }}
+      >
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          {isBroken ? (
+            <>
+              <line x1="18" y1="6"  x2="6"  y2="18" />
+              <line x1="6"  y1="6"  x2="18" y2="18" />
+            </>
+          ) : (
+            <>
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </>
+          )}
+        </svg>
+        <span
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontSize:   '11px',
+          }}
+        >
+          {isBroken ? 'Image failed to load' : 'Invalid URL'}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// buildJsonLd — generates the read-only structured data preview object
+// ---------------------------------------------------------------------------
+
+/*
+ * buildJsonLd — constructs a minimal JSON-LD Article schema from the
+ * current SEO values. Used only for the read-only preview; not submitted
+ * to the API (the server generates canonical JSON-LD from the DB).
+ *
+ * Fallback logic mirrors how the public page's generateMetadata() works:
+ *   ogTitle      → falls back to metaTitle
+ *   ogDescription → falls back to metaDescription
+ *   ogImageUrl   → falls back to '' (no image)
+ */
+function buildJsonLd(values: BikeFormSEOValues): string {
+  const schema = {
+    '@context':   'https://schema.org',
+    '@type':      'Product',
+    name:          values.ogTitle.trim()       || values.metaTitle.trim()       || '(SEO title not set)',
+    description:   values.ogDescription.trim() || values.metaDescription.trim() || '(Meta description not set)',
+    ...(values.canonicalUrl.trim()    && { url:   values.canonicalUrl.trim() }),
+    ...(values.ogImageUrl.trim()      && { image: values.ogImageUrl.trim() }),
+    ...(values.metaKeywords.trim()    && {
+      keywords: values.metaKeywords
+        .split(',')
+        .map((k) => k.trim())
+        .filter(Boolean)
+        .join(', '),
+    }),
+  }
+
+  return JSON.stringify(schema, null, 2)
+}
+
+// ---------------------------------------------------------------------------
 // BikeFormSEO
 // ---------------------------------------------------------------------------
 
@@ -209,18 +348,41 @@ export default function BikeFormSEO({
 
   const [localErrors, setLocalErrors] = useState<BikeFormSEOErrors>({})
 
+  // ── Broken URL tracking ────────────────────────────────────────────────
+
+  /*
+   * brokenUrls — URL strings where the <img> onError fired.
+   * Keyed by URL string so preview state is resilient to field changes.
+   * When a URL field changes, the old URL is removed so the new value
+   * is evaluated fresh.
+   */
+  const [brokenUrls, setBrokenUrls] = useState<Set<string>>(new Set())
+
+  const handleImageError = useCallback((url: string): void => {
+    setBrokenUrls((prev) => new Set([...prev, url]))
+  }, [])
+
+  const clearBrokenForOld = useCallback((oldUrl: string): void => {
+    if (!oldUrl.trim()) return
+    setBrokenUrls((prev) => {
+      const next = new Set(prev)
+      next.delete(oldUrl.trim())
+      return next
+    })
+  }, [])
+
   // ── Merged errors ──────────────────────────────────────────────────────
 
   /*
-   * Local blur errors take precedence over parent section-validation
-   * errors — same merge pattern as BikeFormBasic.
+   * Local blur errors take precedence over parent section-validation errors.
+   * Identical merge pattern to BikeFormBasic and all other section components.
    */
   const mergedErrors: BikeFormSEOErrors = {
     ...errors,
     ...localErrors,
   }
 
-  // ── Field change handler ───────────────────────────────────────────────
+  // ── Generic field change handler ──────────────────────────────────────
 
   const handleFieldChange = useCallback(
     (field: keyof BikeFormSEOValues, value: string): void => {
@@ -229,7 +391,7 @@ export default function BikeFormSEO({
     [values, onChange],
   )
 
-  // ── Field blur handlers ────────────────────────────────────────────────
+  // ── Blur handlers ──────────────────────────────────────────────────────
 
   const handleMetaTitleBlur = useCallback((): void => {
     const err = validateMetaTitle(values.metaTitle)
@@ -274,18 +436,10 @@ export default function BikeFormSEO({
     setLocalErrors((prev) => ({ ...prev, ogImageUrl: err ?? undefined }))
   }, [values.ogImageUrl])
 
-  // ── Search snippet preview values ──────────────────────────────────────
-
-  /*
-   * previewTitle / previewDescription — the values shown in the live
-   * Google-style snippet preview. Falls back to a placeholder string
-   * when the field is empty so the preview never looks broken.
-   */
-  const previewTitle = values.metaTitle.trim() || 'Your SEO title will appear here'
-  const previewDescription =
-    values.metaDescription.trim() ||
-    'Your meta description will appear here. Aim for a concise, compelling summary.'
-  const previewUrl = values.canonicalUrl.trim() || 'motohub360.in › bikes › brand › model'
+  const handleTwitterImageUrlBlur = useCallback((): void => {
+    const err = validateTwitterImageUrl(values.twitterImageUrl)
+    setLocalErrors((prev) => ({ ...prev, twitterImageUrl: err ?? undefined }))
+  }, [values.twitterImageUrl])
 
   // ── Render ─────────────────────────────────────────────────────────────
 
@@ -293,9 +447,9 @@ export default function BikeFormSEO({
     <>
       <style>{`
         /*
-         * Group label — identical uppercase muted pattern used across all
-         * other BikeForm sections (bfs-spec-group-label, bfp-group-label,
-         * bfg-group-label).
+         * Group label — uppercase muted heading.
+         * Matches the pattern used in BikeFormSpecifications,
+         * BikeFormPricing, and BikeFormGallery.
          */
         .bfseo-group-label {
           font-family:    var(--font-body);
@@ -307,9 +461,7 @@ export default function BikeFormSEO({
           margin:         0 0 16px;
         }
 
-        /*
-         * Section divider — consistent with all other BikeForm sections.
-         */
+        /* Section divider */
         .bfseo-divider {
           height:           1px;
           background-color: var(--color-border-hairline);
@@ -317,73 +469,8 @@ export default function BikeFormSEO({
         }
 
         /*
-         * Search result preview card — mimics a Google search snippet.
-         */
-        .bfseo-preview-card {
-          padding:          14px 16px;
-          background-color: var(--color-surface-raised);
-          border:           1px solid var(--color-border-hairline);
-          border-radius:    8px;
-          margin-bottom:    20px;
-        }
-
-        .bfseo-preview-label {
-          font-family:    var(--font-body);
-          font-size:      10px;
-          font-weight:    600;
-          letter-spacing: 0.07em;
-          text-transform: uppercase;
-          color:          var(--color-ink-tertiary);
-          margin:         0 0 10px;
-        }
-
-        .bfseo-preview-url {
-          font-family: var(--font-body);
-          font-size:   13px;
-          color:       #1a5c2e;
-          margin:      0 0 3px;
-          overflow:       hidden;
-          text-overflow:  ellipsis;
-          white-space:    nowrap;
-        }
-
-        .bfseo-preview-title {
-          font-family: Arial, Helvetica, sans-serif;
-          font-size:   18px;
-          color:       #1a0dab;
-          margin:      0 0 3px;
-          line-height: 1.3;
-          overflow:       hidden;
-          text-overflow:  ellipsis;
-          white-space:    nowrap;
-        }
-
-        .bfseo-preview-description {
-          font-family: Arial, Helvetica, sans-serif;
-          font-size:   14px;
-          color:       #4d5156;
-          margin:      0;
-          line-height: 1.5;
-          display:            -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow:           hidden;
-        }
-
-        /*
-         * Field hint — identical pattern to all other sections.
-         */
-        .bfseo-hint {
-          font-family: var(--font-body);
-          font-size:   11px;
-          color:       var(--color-ink-tertiary);
-          margin:      5px 0 0;
-          line-height: 1.5;
-        }
-
-        /*
          * Two-column grid for OG Title / OG Description on desktop.
-         * Collapses to a single column on mobile (≤ 600px).
+         * Collapses to single column on mobile (≤ 600px).
          */
         .bfseo-grid-2 {
           display: grid;
@@ -398,31 +485,174 @@ export default function BikeFormSEO({
         }
 
         /*
-         * Textarea sizing — used for Meta Description and OG Description.
+         * Two-column grid for OG Image / Twitter Image previews.
+         * Each column contains a URL input + image preview.
+         */
+        .bfseo-image-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+        }
+
+        @media (max-width: 640px) {
+          .bfseo-image-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        /*
+         * Textarea — Meta Description and OG Description.
          */
         .bfseo-textarea {
           width:      100%;
           box-sizing: border-box;
-          min-height: 72px;
+          min-height: 80px;
           resize:     vertical;
+        }
+
+        /*
+         * Structured data preview card.
+         */
+        .bfseo-json-card {
+          background-color: var(--color-surface-sunken);
+          border:           1px solid var(--color-border-hairline);
+          border-radius:    8px;
+          overflow:         hidden;
+        }
+
+        .bfseo-json-header {
+          display:          flex;
+          align-items:      center;
+          justify-content:  space-between;
+          padding:          8px 14px;
+          border-bottom:    1px solid var(--color-border-hairline);
+          background-color: var(--color-surface-raised);
+        }
+
+        .bfseo-json-label {
+          font-family:    var(--font-body);
+          font-size:      11px;
+          font-weight:    600;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color:          var(--color-ink-tertiary);
+          margin:         0;
+        }
+
+        .bfseo-json-badge {
+          font-family:      var(--font-body);
+          font-size:        10px;
+          font-weight:      500;
+          color:            var(--color-ink-tertiary);
+          background-color: var(--color-surface-sunken);
+          border:           1px solid var(--color-border-hairline);
+          border-radius:    4px;
+          padding:          1px 6px;
+        }
+
+        .bfseo-json-pre {
+          margin:      0;
+          padding:     14px;
+          font-family: var(--font-mono);
+          font-size:   11px;
+          line-height: 1.65;
+          color:       var(--color-ink-secondary);
+          overflow-x:  auto;
+          white-space: pre;
+        }
+
+        /*
+         * Search result preview card — live Google-style snippet.
+         */
+        .bfseo-serp-card {
+          padding:          14px 16px;
+          background-color: var(--color-surface-raised);
+          border:           1px solid var(--color-border-hairline);
+          border-radius:    8px;
+          margin-bottom:    20px;
+        }
+
+        .bfseo-serp-label {
+          font-family:    var(--font-body);
+          font-size:      10px;
+          font-weight:    600;
+          letter-spacing: 0.07em;
+          text-transform: uppercase;
+          color:          var(--color-ink-tertiary);
+          margin:         0 0 10px;
+        }
+
+        .bfseo-serp-url {
+          font-family:   var(--font-body);
+          font-size:     13px;
+          color:         #1a5c2e;
+          margin:        0 0 2px;
+          overflow:      hidden;
+          text-overflow: ellipsis;
+          white-space:   nowrap;
+        }
+
+        .bfseo-serp-title {
+          font-family:   Arial, Helvetica, sans-serif;
+          font-size:     18px;
+          color:         #1a0dab;
+          margin:        0 0 2px;
+          line-height:   1.3;
+          overflow:      hidden;
+          text-overflow: ellipsis;
+          white-space:   nowrap;
+        }
+
+        .bfseo-serp-description {
+          font-family:          Arial, Helvetica, sans-serif;
+          font-size:            14px;
+          color:                #4d5156;
+          margin:               0;
+          line-height:          1.5;
+          display:              -webkit-box;
+          -webkit-line-clamp:   2;
+          -webkit-box-orient:   vertical;
+          overflow:             hidden;
+        }
+
+        /* Field hint */
+        .bfseo-hint {
+          font-family: var(--font-body);
+          font-size:   11px;
+          color:       var(--color-ink-tertiary);
+          margin:      5px 0 0;
+          line-height: 1.5;
         }
       `}</style>
 
       <div>
 
-        {/* ── Live search result preview ─────────────────────────── */}
+        {/* ── Live SERP preview ──────────────────────────────────── */}
+        {/*
+         * Google-style snippet preview — updates live as the admin types.
+         * Falls back to placeholder text when fields are empty.
+         */}
         <div
-          className="bfseo-preview-card"
+          className="bfseo-serp-card"
           role="img"
-          aria-label={`Search result preview: ${previewTitle} — ${previewDescription}`}
+          aria-label={
+            `Search result preview: ${values.metaTitle || 'SEO title'} — ${values.metaDescription || 'meta description'}`
+          }
         >
-          <p className="bfseo-preview-label">Search Result Preview</p>
-          <p className="bfseo-preview-url">{previewUrl}</p>
-          <p className="bfseo-preview-title">{previewTitle}</p>
-          <p className="bfseo-preview-description">{previewDescription}</p>
+          <p className="bfseo-serp-label">Search Result Preview</p>
+          <p className="bfseo-serp-url">
+            {values.canonicalUrl.trim() || 'motohub360.in › bikes › brand › model'}
+          </p>
+          <p className="bfseo-serp-title">
+            {values.metaTitle.trim() || 'Your SEO title will appear here'}
+          </p>
+          <p className="bfseo-serp-description">
+            {values.metaDescription.trim() ||
+              'Your meta description will appear here. Write a concise, compelling summary.'}
+          </p>
         </div>
 
-        {/* ── Section 1: Core SEO fields ─────────────────────────── */}
+        {/* ── Section 1: Core SEO ───────────────────────────────── */}
         <section aria-label="Core SEO fields">
           <p className="bfseo-group-label">SEO</p>
 
@@ -440,9 +670,7 @@ export default function BikeFormSEO({
               id="bfseo-metaTitle"
               type="text"
               value={values.metaTitle}
-              onChange={(e) =>
-                handleFieldChange('metaTitle', e.target.value)
-              }
+              onChange={(e) => handleFieldChange('metaTitle', e.target.value)}
               onBlur={handleMetaTitleBlur}
               disabled={disabled}
               placeholder="Royal Enfield GT 650 Price in India, Specs & Colours"
@@ -467,14 +695,11 @@ export default function BikeFormSEO({
 
             {!mergedErrors.metaTitle && (
               <p id="bfseo-metaTitle-hint" className="bfseo-hint">
-                The clickable headline shown in search results and browser tabs.
+                The clickable headline in search results. Keep under {FIELD_LIMITS.META_TITLE_MAX} characters.
               </p>
             )}
 
-            <FieldError
-              id="bfseo-metaTitle-error"
-              message={mergedErrors.metaTitle}
-            />
+            <FieldError id="bfseo-metaTitle-error" message={mergedErrors.metaTitle} />
           </div>
 
           {/* Meta Description */}
@@ -495,7 +720,7 @@ export default function BikeFormSEO({
               }
               onBlur={handleMetaDescriptionBlur}
               disabled={disabled}
-              placeholder="Explore the Royal Enfield GT 650 — price, mileage, specifications, colours, and more. Compare and find your perfect ride on MotoHub360."
+              placeholder="Explore the Royal Enfield GT 650 — price, mileage, specs, colours and more."
               maxLength={FIELD_LIMITS.META_DESCRIPTION_MAX + 20}
               className="admin-input bfseo-textarea"
               style={{
@@ -513,7 +738,7 @@ export default function BikeFormSEO({
 
             {!mergedErrors.metaDescription && (
               <p id="bfseo-metaDescription-hint" className="bfseo-hint">
-                The summary text shown below the title in search results.
+                Shown below the title in search results. Keep under {FIELD_LIMITS.META_DESCRIPTION_MAX} characters.
               </p>
             )}
 
@@ -525,18 +750,13 @@ export default function BikeFormSEO({
 
           {/* Canonical URL */}
           <div style={{ marginBottom: '16px' }}>
-            <FieldLabel
-              htmlFor="bfseo-canonicalUrl"
-              label="Canonical URL"
-            />
+            <FieldLabel htmlFor="bfseo-canonicalUrl" label="Canonical URL" />
 
             <input
               id="bfseo-canonicalUrl"
               type="url"
               value={values.canonicalUrl}
-              onChange={(e) =>
-                handleFieldChange('canonicalUrl', e.target.value)
-              }
+              onChange={(e) => handleFieldChange('canonicalUrl', e.target.value)}
               onBlur={handleCanonicalUrlBlur}
               disabled={disabled}
               placeholder="https://motohub360.in/bikes/royal-enfield/gt-650"
@@ -559,8 +779,7 @@ export default function BikeFormSEO({
 
             {!mergedErrors.canonicalUrl && (
               <p id="bfseo-canonicalUrl-hint" className="bfseo-hint">
-                Optional. Leave empty to use the default page URL.
-                Must be HTTPS if provided.
+                Optional. Leave empty to use the default page URL. Must be https:// if provided.
               </p>
             )}
 
@@ -572,18 +791,13 @@ export default function BikeFormSEO({
 
           {/* Meta Keywords */}
           <div>
-            <FieldLabel
-              htmlFor="bfseo-metaKeywords"
-              label="Meta Keywords"
-            />
+            <FieldLabel htmlFor="bfseo-metaKeywords" label="Meta Keywords" />
 
             <input
               id="bfseo-metaKeywords"
               type="text"
               value={values.metaKeywords}
-              onChange={(e) =>
-                handleFieldChange('metaKeywords', e.target.value)
-              }
+              onChange={(e) => handleFieldChange('metaKeywords', e.target.value)}
               onBlur={handleMetaKeywordsBlur}
               disabled={disabled}
               placeholder="royal enfield gt 650, gt650 price, cruiser motorcycle india"
@@ -601,13 +815,11 @@ export default function BikeFormSEO({
                 .join(' ') || undefined}
               aria-invalid={!!mergedErrors.metaKeywords}
               autoComplete="off"
-              spellCheck={false}
             />
 
             {!mergedErrors.metaKeywords && (
               <p id="bfseo-metaKeywords-hint" className="bfseo-hint">
-                Optional. Comma-separated. Modern search engines give this
-                little weight, but it is retained for third-party feeds.
+                Optional. Comma-separated. Low SEO value in modern search engines.
               </p>
             )}
 
@@ -620,15 +832,15 @@ export default function BikeFormSEO({
 
         <div className="bfseo-divider" aria-hidden="true" />
 
-        {/* ── Section 2: Open Graph (social sharing) ─────────────── */}
-        <section aria-label="Open Graph social sharing fields">
+        {/* ── Section 2: Open Graph ─────────────────────────────── */}
+        <section aria-label="Open Graph social sharing">
           <p className="bfseo-group-label">
-            Open Graph &amp; Social Sharing
+            Open Graph &amp; Social
           </p>
 
+          {/* OG Title + OG Description */}
           <div className="bfseo-grid-2" style={{ marginBottom: '16px' }}>
 
-            {/* OG Title */}
             <div>
               <FieldLabel
                 htmlFor="bfseo-ogTitle"
@@ -641,9 +853,7 @@ export default function BikeFormSEO({
                 id="bfseo-ogTitle"
                 type="text"
                 value={values.ogTitle}
-                onChange={(e) =>
-                  handleFieldChange('ogTitle', e.target.value)
-                }
+                onChange={(e) => handleFieldChange('ogTitle', e.target.value)}
                 onBlur={handleOgTitleBlur}
                 disabled={disabled}
                 placeholder="Falls back to SEO Title"
@@ -662,93 +872,192 @@ export default function BikeFormSEO({
                 spellCheck={false}
               />
 
-              <FieldError
-                id="bfseo-ogTitle-error"
-                message={mergedErrors.ogTitle}
-              />
+              <FieldError id="bfseo-ogTitle-error" message={mergedErrors.ogTitle} />
             </div>
 
-            {/* OG Image URL */}
             <div>
               <FieldLabel
-                htmlFor="bfseo-ogImageUrl"
-                label="Open Graph Image URL"
+                htmlFor="bfseo-ogDescription"
+                label="Open Graph Description"
+                current={values.ogDescription.length}
+                max={FIELD_LIMITS.META_DESCRIPTION_MAX}
               />
+
+              <textarea
+                id="bfseo-ogDescription"
+                value={values.ogDescription}
+                onChange={(e) =>
+                  handleFieldChange('ogDescription', e.target.value)
+                }
+                onBlur={handleOgDescriptionBlur}
+                disabled={disabled}
+                placeholder="Falls back to Meta Description"
+                maxLength={FIELD_LIMITS.META_DESCRIPTION_MAX + 20}
+                className="admin-input bfseo-textarea"
+                style={{
+                  ...(mergedErrors.ogDescription && { borderColor: '#C8102E' }),
+                }}
+                aria-describedby={
+                  mergedErrors.ogDescription
+                    ? 'bfseo-ogDescription-error'
+                    : undefined
+                }
+                aria-invalid={!!mergedErrors.ogDescription}
+              />
+
+              <FieldError
+                id="bfseo-ogDescription-error"
+                message={mergedErrors.ogDescription}
+              />
+            </div>
+          </div>
+
+          {/* OG Image + Twitter Image side by side */}
+          <div className="bfseo-image-grid">
+
+            {/* OG Image */}
+            <div>
+              <FieldLabel htmlFor="bfseo-ogImageUrl" label="Open Graph Image URL" />
 
               <input
                 id="bfseo-ogImageUrl"
                 type="url"
                 value={values.ogImageUrl}
-                onChange={(e) =>
+                onChange={(e) => {
+                  clearBrokenForOld(values.ogImageUrl)
                   handleFieldChange('ogImageUrl', e.target.value)
-                }
+                }}
                 onBlur={handleOgImageUrlBlur}
                 disabled={disabled}
-                placeholder="Falls back to hero image"
+                placeholder="https://res.cloudinary.com/..."
                 className="admin-input"
                 style={{
                   width:     '100%',
                   boxSizing: 'border-box',
                   ...(mergedErrors.ogImageUrl && { borderColor: '#C8102E' }),
                 }}
-                aria-describedby={
-                  mergedErrors.ogImageUrl ? 'bfseo-ogImageUrl-error' : undefined
-                }
+                aria-describedby={[
+                  'bfseo-ogImageUrl-hint',
+                  mergedErrors.ogImageUrl ? 'bfseo-ogImageUrl-error' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ') || undefined}
                 aria-invalid={!!mergedErrors.ogImageUrl}
                 autoComplete="off"
                 spellCheck={false}
               />
 
+              {!mergedErrors.ogImageUrl && (
+                <p id="bfseo-ogImageUrl-hint" className="bfseo-hint">
+                  Optional. Falls back to hero image. Recommended: 1200 × 630px.
+                </p>
+              )}
+
               <FieldError
                 id="bfseo-ogImageUrl-error"
                 message={mergedErrors.ogImageUrl}
               />
+
+              <ImagePreview
+                url={values.ogImageUrl}
+                alt="Open Graph image preview"
+                isBroken={brokenUrls.has(values.ogImageUrl.trim())}
+                onError={handleImageError}
+              />
+            </div>
+
+            {/* Twitter Image */}
+            <div>
+              <FieldLabel
+                htmlFor="bfseo-twitterImageUrl"
+                label="Twitter / X Image URL"
+              />
+
+              <input
+                id="bfseo-twitterImageUrl"
+                type="url"
+                value={values.twitterImageUrl}
+                onChange={(e) => {
+                  clearBrokenForOld(values.twitterImageUrl)
+                  handleFieldChange('twitterImageUrl', e.target.value)
+                }}
+                onBlur={handleTwitterImageUrlBlur}
+                disabled={disabled}
+                placeholder="https://res.cloudinary.com/..."
+                className="admin-input"
+                style={{
+                  width:     '100%',
+                  boxSizing: 'border-box',
+                  ...(mergedErrors.twitterImageUrl && { borderColor: '#C8102E' }),
+                }}
+                aria-describedby={[
+                  'bfseo-twitterImageUrl-hint',
+                  mergedErrors.twitterImageUrl
+                    ? 'bfseo-twitterImageUrl-error'
+                    : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ') || undefined}
+                aria-invalid={!!mergedErrors.twitterImageUrl}
+                autoComplete="off"
+                spellCheck={false}
+              />
+
+              {!mergedErrors.twitterImageUrl && (
+                <p id="bfseo-twitterImageUrl-hint" className="bfseo-hint">
+                  Optional. Falls back to Open Graph image. Recommended: 1200 × 628px.
+                </p>
+              )}
+
+              <FieldError
+                id="bfseo-twitterImageUrl-error"
+                message={mergedErrors.twitterImageUrl}
+              />
+
+              <ImagePreview
+                url={values.twitterImageUrl}
+                alt="Twitter image preview"
+                isBroken={brokenUrls.has(values.twitterImageUrl.trim())}
+                onError={handleImageError}
+              />
             </div>
           </div>
+        </section>
 
-          {/* OG Description — full width */}
-          <div>
-            <FieldLabel
-              htmlFor="bfseo-ogDescription"
-              label="Open Graph Description"
-              current={values.ogDescription.length}
-              max={FIELD_LIMITS.META_DESCRIPTION_MAX}
-            />
+        <div className="bfseo-divider" aria-hidden="true" />
 
-            <textarea
-              id="bfseo-ogDescription"
-              value={values.ogDescription}
-              onChange={(e) =>
-                handleFieldChange('ogDescription', e.target.value)
-              }
-              onBlur={handleOgDescriptionBlur}
-              disabled={disabled}
-              placeholder="Falls back to Meta Description. Customise for how this bike appears when shared on WhatsApp, Facebook, or Twitter."
-              maxLength={FIELD_LIMITS.META_DESCRIPTION_MAX + 20}
-              className="admin-input bfseo-textarea"
-              style={{
-                ...(mergedErrors.ogDescription && { borderColor: '#C8102E' }),
-              }}
-              aria-describedby={[
-                'bfseo-ogDescription-hint',
-                mergedErrors.ogDescription ? 'bfseo-ogDescription-error' : '',
-              ]
-                .filter(Boolean)
-                .join(' ') || undefined}
-              aria-invalid={!!mergedErrors.ogDescription}
-            />
+        {/* ── Section 3: Structured Data Preview ────────────────── */}
+        {/*
+         * Read-only JSON-LD preview generated from current form values.
+         * Helps the admin verify how their SEO fields will appear in
+         * structured data before publishing.
+         *
+         * This is a CLIENT-SIDE preview only. The server generates the
+         * canonical JSON-LD from the saved DB document at render time.
+         * Do not use this output directly in API submissions.
+         */}
+        <section aria-label="Structured data preview">
+          <p className="bfseo-group-label">Structured Data Preview</p>
 
-            {!mergedErrors.ogDescription && (
-              <p id="bfseo-ogDescription-hint" className="bfseo-hint">
-                Optional. Shown in link previews on WhatsApp, Facebook, Twitter, and LinkedIn.
-              </p>
-            )}
+          <div className="bfseo-json-card">
+            <div className="bfseo-json-header">
+              <p className="bfseo-json-label">JSON-LD · Product Schema</p>
+              <span className="bfseo-json-badge">Read-only</span>
+            </div>
 
-            <FieldError
-              id="bfseo-ogDescription-error"
-              message={mergedErrors.ogDescription}
-            />
+            <pre
+              className="bfseo-json-pre"
+              aria-label="Structured data JSON-LD preview"
+              tabIndex={0}
+            >
+              {buildJsonLd(values)}
+            </pre>
           </div>
+
+          <p className="bfseo-hint" style={{ marginTop: '8px' }}>
+            Generated from current values. Updates live as you edit the fields above.
+            The server generates the final JSON-LD from saved data at publish time.
+          </p>
         </section>
       </div>
     </>

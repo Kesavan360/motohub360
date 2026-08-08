@@ -369,6 +369,7 @@ export interface BikeFormSEOValues {
   ogTitle: string
   ogDescription: string
   ogImageUrl: string
+  twitterImageUrl: string
 }
 
 export interface BikeFormSEOErrors {
@@ -379,6 +380,7 @@ export interface BikeFormSEOErrors {
   ogTitle?: string
   ogDescription?: string
   ogImageUrl?: string
+  twitterImageUrl?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -582,6 +584,7 @@ export interface BikeFormSubmitPayload {
     ogTitle?: string
     ogDescription?: string
     ogImageUrl?: string
+    twitterImageUrl?: string
   }
 }
 
@@ -687,6 +690,7 @@ export interface BikeFormInitialData {
     ogTitle?: string
     ogDescription?: string
     ogImageUrl?: string
+    twitterImageUrl?: string
   }
 }
 
@@ -790,6 +794,7 @@ export const DEFAULT_SEO_VALUES: BikeFormSEOValues = {
   ogTitle: '',
   ogDescription: '',
   ogImageUrl: '',
+  twitterImageUrl: '',
 }
 
 /*
