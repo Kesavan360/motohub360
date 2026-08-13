@@ -31,6 +31,7 @@ import RelatedBikes from '@/components/bike/RelatedBikes'
 import BikeMobileActionBar from '@/components/bike/BikeMobileActionBar'
 import { BRAND_MAP, BRAND_ACCENT_MAP } from '@/constants/brands'
 import { formatPriceInLakhs } from '@/constants/priceRanges'
+import { absoluteUrl } from '@/lib/seo/site-url'
 import type { IBike } from '@/lib/db/models/Bike'
 
 // ---------------------------------------------------------------------------
@@ -107,9 +108,8 @@ export async function generateMetadata({
       }
     }
 
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? ''
-    const canonicalUrl = `${siteUrl}/bikes/${brandSlug}/${slug}`
+    const defaultCanonical = absoluteUrl(`/bikes/${brandSlug}/${slug}`)
+    const canonicalUrl = bike.seo?.canonicalUrl?.trim() || defaultCanonical
     const year = new Date().getFullYear()
 
     const title =
@@ -164,8 +164,6 @@ function buildVehicleJsonLd(
   brandSlug: string,
   slug: string,
 ): string {
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? ''
   return JSON.stringify({
     '@context': 'https://schema.org',
     '@type': 'Vehicle',
@@ -174,7 +172,7 @@ function buildVehicleJsonLd(
     brand: { '@type': 'Brand', name: bike.brandName },
     model: bike.name,
     image: bike.heroImageUrl,
-    url: `${siteUrl}/bikes/${brandSlug}/${slug}`,
+    url: absoluteUrl(`/bikes/${brandSlug}/${slug}`),
     offers: {
       '@type': 'Offer',
       price: bike.pricing.exShowroom,

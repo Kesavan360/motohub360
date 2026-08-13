@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next'
+import { getCanonicalRedirects } from './src/lib/seo/canonical-redirects'
 
 const nextConfig: NextConfig = {
   /*
@@ -50,19 +51,13 @@ const nextConfig: NextConfig = {
    * REDIRECTS — MPD Section 4 URL Rules + P-01
    *
    * 301 permanent redirects enforce canonical URL patterns.
-   * The redirect rules for variant URL formats (e.g. /bikes/royalenfield/gt650
-   * → /bikes/royal-enfield/gt-650) are added in task P-01 when SEO
-   * architecture is implemented.
+   * Compact slug variants (hyphens removed) redirect to the canonical
+   * hyphenated slugs defined in MPD Section 4 and the bikes collection.
    *
-   * The async function structure is established here so P-01 can add
-   * rules without modifying the config shape.
-   *
-   * Return value: empty array = no active redirects yet.
+   * Example: /bikes/royalenfield/gt650 → /bikes/royal-enfield/gt-650
    */
   async redirects() {
-    return [
-      // P-01: SEO canonical redirects added here
-    ]
+    return getCanonicalRedirects()
   },
 }
 
