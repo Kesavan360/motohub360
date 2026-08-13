@@ -32,6 +32,10 @@ import BikeMobileActionBar from '@/components/bike/BikeMobileActionBar'
 import { BRAND_MAP, BRAND_ACCENT_MAP } from '@/constants/brands'
 import { formatPriceInLakhs } from '@/constants/priceRanges'
 import { absoluteUrl } from '@/lib/seo/site-url'
+import {
+  buildVehicleJsonLd,
+  buildVideoObjectJsonLd,
+} from '@/lib/seo/bike-json-ld'
 import type { IBike } from '@/lib/db/models/Bike'
 
 // ---------------------------------------------------------------------------
@@ -156,40 +160,6 @@ export async function generateMetadata({
 }
 
 // ---------------------------------------------------------------------------
-// Vehicle JSON-LD
-// ---------------------------------------------------------------------------
-
-function buildVehicleJsonLd(
-  bike: BikeDetailData,
-  brandSlug: string,
-  slug: string,
-): string {
-  return JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'Vehicle',
-    name: `${bike.brandName} ${bike.name}`,
-    description: bike.tagline,
-    brand: { '@type': 'Brand', name: bike.brandName },
-    model: bike.name,
-    image: bike.heroImageUrl,
-    url: absoluteUrl(`/bikes/${brandSlug}/${slug}`),
-    offers: {
-      '@type': 'Offer',
-      price: bike.pricing.exShowroom,
-      priceCurrency: 'INR',
-      priceSpecification: {
-        '@type': 'PriceSpecification',
-        price: bike.pricing.exShowroom,
-        priceCurrency: 'INR',
-        name: 'Ex-showroom price',
-      },
-      availability: 'https://schema.org/InStock',
-      seller: { '@type': 'Organization', name: 'MotoHub360' },
-    },
-  })
-}
-
-// ---------------------------------------------------------------------------
 // Default blur
 // ---------------------------------------------------------------------------
 
@@ -253,6 +223,7 @@ export default async function BikeDetailPage({
   ]
 
   const vehicleJsonLd = buildVehicleJsonLd(bike, brandSlug, slug)
+  const videoObjectJsonLd = buildVideoObjectJsonLd(bike, brandSlug, slug)
   const defaultColor = bike.colors[0] ?? null
 
   return (
@@ -261,6 +232,12 @@ export default async function BikeDetailPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: vehicleJsonLd }}
       />
+      {videoObjectJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: videoObjectJsonLd }}
+        />
+      )}
 
       <style>{`
         .bike-detail-page {
