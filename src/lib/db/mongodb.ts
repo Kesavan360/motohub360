@@ -275,7 +275,7 @@ async function connectDB(): Promise<Mongoose> {
    *   - dotenv-based setups where vars are loaded asynchronously
    */
   const uri = process.env.MONGODB_URI
-  console.log(process.env.MONGODB_URI)
+
   if (!uri) {
     throw new Error(
       '[MotoHub360] MONGODB_URI is not set.\n' +
