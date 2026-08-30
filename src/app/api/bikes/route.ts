@@ -74,6 +74,7 @@
  */
 
 import { NextResponse, type NextRequest } from 'next/server'
+import { getAdminSession } from '@/lib/auth'
 import connectDB from '@/lib/db/mongodb'
 import Bike from '@/lib/db/models/Bike'
 import type { IBikeInput } from '@/lib/db/models/Bike'
@@ -443,51 +444,18 @@ export async function GET(
 export async function POST(
   request: NextRequest,
 ): Promise<NextResponse> {
-  /*
-   * AUTH PLACEHOLDER — A-04 integration point.
-   *
-   * Phase 9 (A-04) adds admin session verification here:
-   *
-   *   import { getIronSession } from 'iron-session'
-   *   import { cookies } from 'next/headers'
-   *   import { sessionOptions } from '@/lib/session'
-   *   import type { IAdminSession } from '@/lib/db/models/Admin'
-   *
-   *   const session = await getIronSession<{ admin?: IAdminSession }>(
-   *     await cookies(),
-   *     sessionOptions,
-   *   )
-   *
-   *   if (!session.admin) {
-   *     return NextResponse.json(
-   *       { error: 'Unauthorized' },
-   *       { status: 401, headers: { 'Cache-Control': 'no-store' } },
-   *     )
-   *   }
-   *
-   * Until A-04 is implemented, POST returns 501 Not Implemented.
-   * This prevents accidental bike creation without authentication
-   * during development.
-   *
-   * DO NOT REMOVE THIS COMMENT — it marks the A-04 integration point.
-   */
-  if (process.env.NODE_ENV !== 'development') {
+  const adminSession = await getAdminSession()
+
+  if (!adminSession) {
     return NextResponse.json(
+      { error: 'Unauthorized. Admin session required.' },
       {
-        error:
-          'Admin authentication is not yet implemented. ' +
-          'POST /api/bikes will be available after A-04 is complete.',
+        status: 401,
+        headers: { 'Cache-Control': 'no-store' },
       },
-      { status: 501, headers: { 'Cache-Control': 'no-store' } },
     )
   }
 
-  /*
-   * Development-only POST implementation.
-   * Allows seed script (DB-10) and admin testing without full auth.
-   * This block is unreachable in production (NODE_ENV !== 'development'
-   * returns 501 above).
-   */
   try {
     await connectDB()
 

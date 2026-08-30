@@ -72,6 +72,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server'
 import mongoose from 'mongoose'
+import { getAdminSession } from '@/lib/auth'
 import connectDB from '@/lib/db/mongodb'
 import Bike from '@/lib/db/models/Bike'
 import type { IBikeInput } from '@/lib/db/models/Bike'
@@ -137,30 +138,6 @@ function buildBikeQuery(
   }
 
   return null
-}
-
-/*
- * isAdminAuthenticated — placeholder for A-04 iron-session check.
- *
- * In development: always returns true (allows mutations without auth).
- * In production: always returns false until A-04 implements real auth.
- *
- * A-04 INTEGRATION POINT:
- *   Replace this function body with:
- *
- *   import { getIronSession } from 'iron-session'
- *   import { cookies } from 'next/headers'
- *   import { sessionOptions } from '@/lib/session'
- *   import type { IAdminSession } from '@/lib/db/models/Admin'
- *
- *   const session = await getIronSession<{ admin?: IAdminSession }>(
- *     await cookies(),
- *     sessionOptions,
- *   )
- *   return session.admin !== undefined
- */
-function isAdminAuthenticated(): boolean {
-  return process.env.NODE_ENV === 'development'
 }
 
 /*
@@ -258,21 +235,14 @@ export async function GET(
      * Find the bike by _id or slug.
      *
      * Public access (no auth): only published bikes.
-     * The status: 'published' filter prevents draft bikes from being
-     * accessed without admin auth.
-     *
-     * A-04 INTEGRATION POINT:
-     *   After A-04 is implemented, authenticated admin requests
-     *   should be allowed to fetch draft bikes:
-     *
-     *   const statusFilter = isAdminAuthenticated()
-     *     ? {}
-     *     : { status: 'published' }
-     *   const bike = await Bike.findOne({ ...query, ...statusFilter })
+     * Authenticated admins may also fetch draft bikes.
      */
+    const adminSession = await getAdminSession()
+    const statusFilter = adminSession ? {} : { status: 'published' as const }
+
     const bike = await Bike.findOne({
       ...query,
-      status: 'published',
+      ...statusFilter,
     }).lean()
 
     if (!bike) {
@@ -317,18 +287,15 @@ export async function PUT(
   request: NextRequest,
   context: RouteContext,
 ): Promise<NextResponse> {
-  /*
-   * AUTH CHECK — A-04 placeholder.
-   * Returns 501 in production. Allows mutations in development.
-   */
-  if (!isAdminAuthenticated()) {
+  const adminSession = await getAdminSession()
+
+  if (!adminSession) {
     return NextResponse.json(
+      { error: 'Unauthorized. Admin session required.' },
       {
-        error:
-          'Admin authentication is not yet implemented. ' +
-          'PUT /api/bikes/[id] will be available after A-04 is complete.',
+        status: 401,
+        headers: { 'Cache-Control': 'no-store' },
       },
-      { status: 501, headers: { 'Cache-Control': 'no-store' } },
     )
   }
 
@@ -435,18 +402,15 @@ export async function DELETE(
   request: NextRequest,
   context: RouteContext,
 ): Promise<NextResponse> {
-  /*
-   * AUTH CHECK — A-04 placeholder.
-   * Returns 501 in production. Allows mutations in development.
-   */
-  if (!isAdminAuthenticated()) {
+  const adminSession = await getAdminSession()
+
+  if (!adminSession) {
     return NextResponse.json(
+      { error: 'Unauthorized. Admin session required.' },
       {
-        error:
-          'Admin authentication is not yet implemented. ' +
-          'DELETE /api/bikes/[id] will be available after A-04 is complete.',
+        status: 401,
+        headers: { 'Cache-Control': 'no-store' },
       },
-      { status: 501, headers: { 'Cache-Control': 'no-store' } },
     )
   }
 

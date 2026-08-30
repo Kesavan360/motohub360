@@ -83,6 +83,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import mongoose from 'mongoose'
+import { getAdminSession } from '@/lib/auth'
 import connectDB from '@/lib/db/mongodb'
 import Bike from '@/lib/db/models/Bike'
 import { PRICE_RANGE_SLUGS } from '@/constants/priceRanges'
@@ -141,17 +142,6 @@ function buildBikeQuery(
   }
 
   return null
-}
-
-/*
- * isAdminAuthenticated — A-04 placeholder.
- * See DB-06 for full documentation of this pattern.
- *
- * A-04 INTEGRATION POINT:
- *   Replace with iron-session check identical to DB-06.
- */
-function isAdminAuthenticated(): boolean {
-  return process.env.NODE_ENV === 'development'
 }
 
 /*
@@ -237,17 +227,15 @@ export async function POST(
   _request: NextRequest,
   context: RouteContext,
 ): Promise<NextResponse> {
-  /*
-   * AUTH CHECK — A-04 placeholder.
-   */
-  if (!isAdminAuthenticated()) {
+  const adminSession = await getAdminSession()
+
+  if (!adminSession) {
     return NextResponse.json(
+      { error: 'Unauthorized. Admin session required.' },
       {
-        error:
-          'Admin authentication is not yet implemented. ' +
-          'POST /api/bikes/[id]/publish will be available after A-04.',
+        status: 401,
+        headers: { 'Cache-Control': 'no-store' },
       },
-      { status: 501, headers: { 'Cache-Control': 'no-store' } },
     )
   }
 
@@ -364,17 +352,15 @@ export async function DELETE(
   _request: NextRequest,
   context: RouteContext,
 ): Promise<NextResponse> {
-  /*
-   * AUTH CHECK — A-04 placeholder.
-   */
-  if (!isAdminAuthenticated()) {
+  const adminSession = await getAdminSession()
+
+  if (!adminSession) {
     return NextResponse.json(
+      { error: 'Unauthorized. Admin session required.' },
       {
-        error:
-          'Admin authentication is not yet implemented. ' +
-          'DELETE /api/bikes/[id]/publish will be available after A-04.',
+        status: 401,
+        headers: { 'Cache-Control': 'no-store' },
       },
-      { status: 501, headers: { 'Cache-Control': 'no-store' } },
     )
   }
 
