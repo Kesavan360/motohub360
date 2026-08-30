@@ -65,11 +65,21 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import Breadcrumb from '@/components/layout/Breadcrumb'
-import FilterBar from '@/components/listing/FilterBar'
+import FilterBarConnector from '@/components/listing/FilterBarConnector'
 import BikeGrid from '@/components/listing/BikeGrid'
 import { BRAND_ACCENT_MAP } from '@/constants/brands'
+import { isValidCategory } from '@/constants/categories'
+import { isValidPriceRange } from '@/constants/priceRanges'
 import { MOCK_FEATURED_BIKES } from '@/lib/mockData'
 import type { BikeSummary } from '@/types/bike'
+
+const LISTING_SORT_OPTIONS = [
+  'featured',
+  'price-asc',
+  'price-desc',
+  'name-asc',
+  'newest',
+] as const
 
 // ---------------------------------------------------------------------------
 // Rendering strategy
@@ -289,9 +299,15 @@ function getMockSearchResults(query: string): BikeSummary[] {
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>
+  searchParams: Promise<{
+    q?: string
+    category?: string
+    priceRange?: string
+    sort?: string
+  }>
 }) {
-  const { q } = await searchParams
+  const { q, category: categoryParam, priceRange: priceRangeParam, sort: sortParam } =
+    await searchParams
 
   /*
    * Sanitise the query parameter.
@@ -551,8 +567,26 @@ export default async function SearchPage({
            * additional $match stages for category/price filters.
            */}
           <div className="search-filter-row">
-          <FilterBar hiddenFilters={[]} 
-          />
+            <FilterBarConnector
+              hiddenFilters={[]}
+              initialValues={{
+                category:
+                  categoryParam && isValidCategory(categoryParam)
+                    ? categoryParam
+                    : 'all',
+                priceRange:
+                  priceRangeParam && isValidPriceRange(priceRangeParam)
+                    ? priceRangeParam
+                    : 'all',
+                sort:
+                  sortParam !== undefined &&
+                  (LISTING_SORT_OPTIONS as readonly string[]).includes(
+                    sortParam,
+                  )
+                    ? sortParam
+                    : 'featured',
+              }}
+            />
           </div>
 
           {/* ── Results grid ─────────────────────────────────────── */}

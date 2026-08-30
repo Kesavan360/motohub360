@@ -14,15 +14,59 @@ import { notFound } from 'next/navigation'
 import connectDB from '@/lib/db/mongodb'
 import Bike from '@/lib/db/models/Bike'
 import Breadcrumb from '@/components/layout/Breadcrumb'
-import FilterBar from '@/components/listing/FilterBar'
+import FilterBarConnector from '@/components/listing/FilterBarConnector'
 import BikeGrid from '@/components/listing/BikeGrid'
 import {
   CATEGORY_MAP,
   CATEGORY_SLUGS,
   isValidCategory,
 } from '@/constants/categories'
+import {
+  isValidPriceRange,
+  PRICE_RANGE_MAP,
+} from '@/constants/priceRanges'
 import { BRAND_ACCENT_MAP } from '@/constants/brands'
 import type { BikeSummary, BikeCategory } from '@/types/bike'
+import type { FilterQuery } from 'mongoose'
+import type { IBike } from '@/lib/db/models/Bike'
+
+const LISTING_SORT_OPTIONS = [
+  'featured',
+  'price-asc',
+  'price-desc',
+  'name-asc',
+  'newest',
+] as const
+
+type ListingSortOption = (typeof LISTING_SORT_OPTIONS)[number]
+
+function parseListingSort(value: string | undefined): ListingSortOption {
+  if (
+    value !== undefined &&
+    (LISTING_SORT_OPTIONS as readonly string[]).includes(value)
+  ) {
+    return value as ListingSortOption
+  }
+  return 'featured'
+}
+
+function listingSortQuery(
+  sort: ListingSortOption,
+): Record<string, 1 | -1> {
+  switch (sort) {
+    case 'price-asc':
+      return { 'pricing.exShowroom': 1 }
+    case 'price-desc':
+      return { 'pricing.exShowroom': -1 }
+    case 'name-asc':
+      return { name: 1 }
+    case 'newest':
+      return { createdAt: -1 }
+    case 'featured':
+    default:
+      return { publishedAt: -1 }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Rendering strategy
@@ -83,10 +127,17 @@ export async function generateMetadata({
 
 export default async function CategoryListingPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ category: string }>
+  searchParams: Promise<{
+    category?: string
+    priceRange?: string
+    sort?: string
+  }>
 }) {
   const { category: categorySlug } = await params
+  const { priceRange: priceRangeParam, sort: sortParam } = await searchParams
 
   if (!isValidCategory(categorySlug)) {
     notFound()
@@ -104,14 +155,31 @@ export default async function CategoryListingPage({
    * Sorted by publishedAt descending — most recently published first
    * (matches the default "Featured" sort on listing pages).
    */
-  const bikes = await Bike.find({
+  const filter: FilterQuery<IBike> = {
     category: categorySlug,
     status: 'published',
-  })
+  }
+
+  const priceRangeFilter =
+    priceRangeParam && isValidPriceRange(priceRangeParam)
+      ? PRICE_RANGE_MAP[priceRangeParam]
+      : undefined
+  if (priceRangeFilter) {
+    filter['pricing.exShowroom'] = {
+      $gte: priceRangeFilter.minPrice,
+      ...(priceRangeFilter.maxPrice !== Number.POSITIVE_INFINITY
+        ? { $lte: priceRangeFilter.maxPrice }
+        : {}),
+    }
+  }
+
+  const sort = parseListingSort(sortParam)
+
+  const bikes = await Bike.find(filter)
     .select(
       'slug brandSlug name tagline category status pricing heroImageUrl blurDataUrl publishedAt',
     )
-    .sort({ publishedAt: -1 })
+    .sort(listingSortQuery(sort))
     .lean<BikeSummary[]>()
 
   /*
@@ -247,8 +315,12 @@ export default async function CategoryListingPage({
           </div>
 
           <div className="category-filter-row">
-            <FilterBar
+            <FilterBarConnector
               hiddenFilters={['category']}
+              initialValues={{
+                priceRange: priceRangeFilter ? priceRangeFilter.slug : 'all',
+                sort,
+              }}
             />
           </div>
 
