@@ -475,16 +475,6 @@ export default function FilterBar({
     }
   }, [isBottomSheetOpen])
 
-  /*
-   * Sync pendingValues when bottom sheet opens.
-   * Ensures the sheet shows current applied values, not stale state.
-   */
-  useEffect(() => {
-    if (isBottomSheetOpen) {
-      setPendingValues(values)
-    }
-  }, [isBottomSheetOpen, values])
-
   return (
     <>
       {/* ── Scoped styles ─────────────────────────────────────── */}
@@ -697,7 +687,7 @@ export default function FilterBar({
            */}
           <button
             type="button"
-            onClick={() => setIsBottomSheetOpen(true)}
+            onClick={() => { setPendingValues(values); setIsBottomSheetOpen(true) }}
             aria-label={`Filters${activeFilterCount > 0 ? ` — ${activeFilterCount} active` : ''}`}
             aria-haspopup="dialog"
             style={{

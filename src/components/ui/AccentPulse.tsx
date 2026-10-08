@@ -176,18 +176,18 @@ const UNDERLINE_SIZE: Record<
 
 function useReducedMotion(): boolean {
   /*
-   * SSR-safe initial state: default to false (animations enabled).
-   * The effect runs only on the client where window is available.
+   * Lazy initialiser reads the current system preference on first render
+   * (client-only; SSR-safe via typeof guard — returns false on server).
+   * The effect only attaches the change listener, no initial setState needed.
    */
-  const [reducedMotion, setReducedMotion] = useState<boolean>(false)
+  const [reducedMotion, setReducedMotion] = useState<boolean>(
+    () =>
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  )
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
-
-    /*
-     * Set initial value based on current system preference.
-     */
-    setReducedMotion(mediaQuery.matches)
 
     /*
      * Listen for changes — user may toggle the system setting

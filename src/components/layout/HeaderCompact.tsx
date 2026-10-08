@@ -295,12 +295,24 @@ function CompactMobileDrawer({
 
 export default function HeaderCompact() {
   const pathname = usePathname()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  useEffect(() => {
-    setMobileMenuOpen(false)
-  }, [pathname])
+  /*
+   * menuOpenPathname — the pathname at which the mobile menu was opened.
+   * The menu is derived as open only when pathname still matches.
+   * Navigating to a new route changes pathname, making mobileMenuOpen
+   * false automatically — no effect-based setState on pathname needed.
+   */
+  const [menuOpenPathname, setMenuOpenPathname] = useState<string | null>(null)
+  const mobileMenuOpen = menuOpenPathname === pathname
 
+  const setMobileMenuOpen = (open: boolean) => {
+    setMenuOpenPathname(open ? pathname : null)
+  }
+
+  /*
+   * Lock body scroll while the mobile menu is open.
+   * setState is not called here — only the external DOM is mutated.
+   */
   useEffect(() => {
     if (mobileMenuOpen) {
       document.body.style.overflow = 'hidden'

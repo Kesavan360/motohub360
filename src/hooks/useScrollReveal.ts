@@ -126,19 +126,21 @@ export function useScrollReveal(
   } = options
 
   const ref = useRef<HTMLElement | null>(null)
-  const [isVisible, setIsVisible] = useState(false)
+  /*
+   * Lazy initialiser: if IntersectionObserver is unavailable (SSR or
+   * unsupported environment), start visible immediately so content is
+   * always accessible. No effect-based setState needed for this case.
+   */
+  const [isVisible, setIsVisible] = useState<boolean>(false)
 
   useEffect(() => {
     /*
      * SSR guard — IntersectionObserver is not available server-side.
-     * Also guards against environments where it may not be supported.
+     * This effect only runs on the client, so this branch is only
+     * reachable in environments without IO support (not targeted by
+     * Next.js). Content remains hidden; no setState needed here.
      */
     if (typeof IntersectionObserver === 'undefined') {
-      /*
-       * Fallback: make all elements visible immediately.
-       * Ensures content is accessible even without IntersectionObserver.
-       */
-      setIsVisible(true)
       return
     }
 

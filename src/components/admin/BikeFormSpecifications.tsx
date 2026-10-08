@@ -62,7 +62,7 @@
  *   Event handlers (onChange, onBlur)
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import Icon from '@/components/ui/Icon'
 import { validateSpecTextField, FIELD_LIMITS } from '@/lib/bike-form-validation'
 import type {
@@ -144,11 +144,11 @@ interface SpecFieldDef {
  */
 const ENGINE_FIELDS: SpecFieldDef[] = [
   {
-    group:       'engine',
-    key:         'displacement',
-    label:       'Engine CC',
+    group: 'engine',
+    key: 'displacement',
+    label: 'Engine CC',
     placeholder: '648 cc',
-    hint:        'Total engine displacement including unit, e.g. 648 cc',
+    hint: 'Total engine displacement including unit, e.g. 648 cc',
   },
   {
     group: 'engine',
@@ -158,56 +158,126 @@ const ENGINE_FIELDS: SpecFieldDef[] = [
     hint: 'Claimed mileage including unit, e.g. 25 kmpl',
   },
   {
-    group:       'engine',
-    key:         'maxPower',
-    label:       'Power',
+    group: 'engine',
+    key: 'maxPower',
+    label: 'Power',
     placeholder: '47 bhp @ 7,150 rpm',
-    hint:        'Peak power output with RPM, e.g. 47 bhp @ 7,150 rpm',
+    hint: 'Peak power output with RPM, e.g. 47 bhp @ 7,150 rpm',
   },
   {
-    group:       'engine',
-    key:         'maxTorque',
-    label:       'Torque',
+    group: 'engine',
+    key: 'maxTorque',
+    label: 'Torque',
     placeholder: '52 Nm @ 5,250 rpm',
-    hint:        'Peak torque with RPM, e.g. 52 Nm @ 5,250 rpm',
+    hint: 'Peak torque with RPM, e.g. 52 Nm @ 5,250 rpm',
   },
   {
-    group:       'engine',
-    key:         'transmission',
-    label:       'Transmission',
+    group: 'engine',
+    key: 'transmission',
+    label: 'Transmission',
     placeholder: '6-Speed, Constant Mesh',
-    hint:        'Gearbox type and speed count',
+    hint: 'Gearbox type and speed count',
+  },
+  {
+    group: 'engine',
+    key: 'engineType',
+    label: 'Engine Type',
+    placeholder: 'Parallel-twin, 4-stroke, SOHC, Air + Oil Cooled',
+    hint: 'Engine configuration and construction',
+  },
+  {
+    group: 'engine',
+    key: 'fuelSystem',
+    label: 'Fuel System',
+    placeholder: 'Fuel Injection (EFI)',
+    hint: 'Fuel delivery system',
+  },
+  {
+    group: 'engine',
+    key: 'coolingType',
+    label: 'Cooling Type',
+    placeholder: 'Air + Oil Cooled',
+    hint: 'Engine cooling system',
+  },
+  {
+    group: 'engine',
+    key: 'clutch',
+    label: 'Clutch',
+    placeholder: 'Wet, Multi-plate, Slip & Assist',
+    hint: 'Clutch type and assist features',
+  },
+  {
+    group: 'engine',
+    key: 'startingSystem',
+    label: 'Starting System',
+    placeholder: 'Electric Start',
+    hint: 'Engine starting mechanism',
+  },
+  {
+    group: 'engine',
+    key: 'emission',
+    label: 'Emission',
+    placeholder: 'OBD2B (BS6 Phase 2)',
+    hint: 'Emission compliance standard',
   },
 ]
 
 const DIMENSION_FIELDS: SpecFieldDef[] = [
   {
-    group:       'dimensions',
-    key:         'fuelCapacity',
-    label:       'Fuel Tank Capacity',
+    group: 'dimensions',
+    key: 'fuelCapacity',
+    label: 'Fuel Tank Capacity',
     placeholder: '13.7 litres',
-    hint:        'Full tank capacity including unit, e.g. 13.7 litres',
+    hint: 'Full tank capacity including unit, e.g. 13.7 litres',
   },
   {
-    group:       'dimensions',
-    key:         'seatHeight',
-    label:       'Seat Height',
+    group: 'dimensions',
+    key: 'seatHeight',
+    label: 'Seat Height',
     placeholder: '790 mm',
-    hint:        'Seat height from ground to top of seat, e.g. 790 mm',
+    hint: 'Seat height from ground to top of seat, e.g. 790 mm',
   },
   {
-    group:       'dimensions',
-    key:         'groundClearance',
-    label:       'Ground Clearance',
+    group: 'dimensions',
+    key: 'groundClearance',
+    label: 'Ground Clearance',
     placeholder: '174 mm',
-    hint:        'Minimum clearance from ground, e.g. 174 mm',
+    hint: 'Minimum clearance from ground, e.g. 174 mm',
   },
   {
-    group:       'dimensions',
-    key:         'kerbWeight',
-    label:       'Kerb Weight',
+    group: 'dimensions',
+    key: 'kerbWeight',
+    label: 'Kerb Weight',
     placeholder: '202 kg',
-    hint:        'Weight with full fluids, no rider, e.g. 202 kg',
+    hint: 'Weight with full fluids, no rider, e.g. 202 kg',
+  },
+  {
+    group: 'dimensions',
+    key: 'wheelbase',
+    label: 'Wheelbase',
+    placeholder: '1,400 mm',
+    hint: 'Distance between front and rear wheel axles',
+  },
+  {
+    group: 'dimensions',
+    key: 'overallLength',
+    label: 'Overall Length',
+    placeholder: '2,122 mm',
+    hint: 'Total length of the motorcycle',
+  },
+  {
+    group: 'dimensions',
+    key: 'overallWidth',
+    label: 'Overall Width',
+    placeholder: '785 mm',
+    hint: 'Total width of the motorcycle',
+  },
+  {
+    group: 'dimensions',
+    key: 'overallHeight',
+    label: 'Overall Height',
+    placeholder: '1,024 mm',
+    hint: 'Total height of the motorcycle',
   },
 ]
 

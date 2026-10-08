@@ -155,17 +155,20 @@ export default function BikeHero({
 }: BikeHeroProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
-  const [reducedMotion, setReducedMotion] = useState(false)
+  const [reducedMotion, setReducedMotion] = useState<boolean>(
+    () =>
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  )
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   /*
-   * Detect prefers-reduced-motion on mount.
+   * Listen for changes to prefers-reduced-motion.
    * When true: disable auto-rotation and cross-fade transitions.
-   * The component still renders correctly — just no animation.
+   * Initial value is set via lazy useState initialiser above (SSR-safe).
    */
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    setReducedMotion(mq.matches)
     const handler = (e: MediaQueryListEvent) => setReducedMotion(e.matches)
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)

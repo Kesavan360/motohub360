@@ -1,17 +1,17 @@
-/*
- * /api/bikes/[id] — Single bike REST API.
+﻿/*
+ * /api/bikes/[id] â€” Single bike REST API.
  *
  * MPD Task DB-06:
- *   "GET /api/bikes/[id] — returns full bike document.
- *   PUT /api/bikes/[id] — updates bike.
- *   DELETE /api/bikes/[id] — deletes bike.
+ *   "GET /api/bikes/[id] â€” returns full bike document.
+ *   PUT /api/bikes/[id] â€” updates bike.
+ *   DELETE /api/bikes/[id] â€” deletes bike.
  *   All mutations require admin auth."
  *
- * MPD Section 8, Technical Architecture — API Routes:
+ * MPD Section 8, Technical Architecture â€” API Routes:
  *   "GET routes: public, cached at CDN where appropriate.
  *   POST/PUT/DELETE routes: admin-auth-protected."
  *
- * ─── ROUTE PARAMETER ──────────────────────────────────────────────
+ * â”€â”€â”€ ROUTE PARAMETER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  *
  * The [id] segment accepts either:
  *   1. A MongoDB ObjectId string (24-char hex): "64f1a2b3c4d5e6f7a8b9c0d1"
@@ -21,10 +21,10 @@
  * Otherwise, query by slug. This allows both the admin panel (which uses
  * _id) and the bike detail page (which uses slug) to use the same endpoint.
  *
- * ─── GET /api/bikes/[id] ──────────────────────────────────────────
+ * â”€â”€â”€ GET /api/bikes/[id] â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  *
  * Returns the full bike document including specs, gallery, colors, seo.
- * No projection — the detail page (B-xx) needs all fields.
+ * No projection â€” the detail page (B-xx) needs all fields.
  *
  * Public endpoint: published bikes only.
  * Admin endpoint: draft bikes accessible with admin session (A-04).
@@ -39,13 +39,13 @@
  *   5-minute CDN cache, 10-minute stale-while-revalidate.
  *   DB-07 purges this cache when the bike is published/updated.
  *
- * ─── PUT /api/bikes/[id] ──────────────────────────────────────────
+ * â”€â”€â”€ PUT /api/bikes/[id] â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  *
  * Accepts a partial bike update (Partial<IBikeInput>).
- * Only provided fields are updated — uses $set semantics.
+ * Only provided fields are updated â€” uses $set semantics.
  * Returns the updated bike document.
  *
- * Admin auth required (A-04 placeholder — returns 501 in production).
+ * Admin auth required (A-04 placeholder â€” returns 501 in production).
  *
  * Response:
  *   { bike: IBike } with status 200
@@ -53,17 +53,17 @@
  *   { error: string } with status 404 if bike not found
  *   { error: string } with status 409 for slug conflicts
  *
- * ─── DELETE /api/bikes/[id] ───────────────────────────────────────
+ * â”€â”€â”€ DELETE /api/bikes/[id] â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  *
  * Permanently deletes the bike document from MongoDB.
- * This is a hard delete — no soft-delete in V1.
- * Admin auth required (A-04 placeholder — returns 501 in production).
+ * This is a hard delete â€” no soft-delete in V1.
+ * Admin auth required (A-04 placeholder â€” returns 501 in production).
  *
  * Response:
  *   { message: string } with status 200
  *   { error: string } with status 404 if bike not found
  *
- * ─── AUTH PLACEHOLDER ─────────────────────────────────────────────
+ * â”€â”€â”€ AUTH PLACEHOLDER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  *
  * PUT and DELETE return 501 in production until A-04 implements
  * iron-session admin authentication. In development, mutations are
@@ -71,28 +71,18 @@
  */
 
 import { NextResponse, type NextRequest } from 'next/server'
-import mongoose from 'mongoose'
 import { getAdminSession } from '@/lib/auth'
 import connectDB from '@/lib/db/mongodb'
 import Bike from '@/lib/db/models/Bike'
 import type { IBikeInput } from '@/lib/db/models/Bike'
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-/*
- * OBJECT_ID_REGEX — matches a valid MongoDB ObjectId (24 hex characters).
- * Used to determine whether [id] is an ObjectId or a slug string.
- */
-const OBJECT_ID_REGEX = /^[a-f\d]{24}$/i
+import { buildBikeQuery } from '@/lib/db/utils'
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 /*
- * RouteContext — the context object Next.js passes to App Router
+ * RouteContext â€” the context object Next.js passes to App Router
  * route handlers. params contains the dynamic route segments.
  *
  * params is typed as Promise<{ id: string }> per Next.js 15+
@@ -103,45 +93,9 @@ interface RouteContext {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 /*
- * buildBikeQuery — builds a Mongoose filter for a single bike lookup.
- *
- * If id matches ObjectId format → query by _id.
- * Otherwise → query by slug.
- *
- * Returns null if the id is a malformed ObjectId attempt
- * (starts with hex chars but is the wrong length — not a valid slug either).
- */
-function buildBikeQuery(
-  id: string,
-): { _id: mongoose.Types.ObjectId } | { slug: string } | null {
-  const trimmed = id.trim()
-
-  if (OBJECT_ID_REGEX.test(trimmed)) {
-    /*
-     * Valid 24-char hex string — treat as MongoDB ObjectId.
-     */
-    return { _id: new mongoose.Types.ObjectId(trimmed) }
-  }
-
-  /*
-   * Not an ObjectId — treat as a slug.
-   * Slugs are lowercase kebab-case: /^[a-z0-9]+(?:-[a-z0-9]+)*$/
-   * We accept any non-empty string as a potential slug and let
-   * Mongoose return null if no document matches.
-   */
-  if (trimmed.length > 0) {
-    return { slug: trimmed.toLowerCase() }
-  }
-
-  return null
-}
-
-/*
- * handleMongooseError — converts Mongoose errors to HTTP responses.
+ * handleMongooseError â€” converts Mongoose errors to HTTP responses.
  * Centralises error handling for PUT and DELETE handlers.
  */
 function handleMongooseError(
@@ -153,7 +107,7 @@ function handleMongooseError(
   }
 
   /*
-   * Mongoose ValidationError — invalid field values.
+   * Mongoose ValidationError â€” invalid field values.
    */
   if (
     error !== null &&
@@ -195,7 +149,7 @@ function handleMongooseError(
   }
 
   /*
-   * Generic server error — safe message, no internal details.
+   * Generic server error â€” safe message, no internal details.
    */
   return NextResponse.json(
     {
@@ -218,7 +172,7 @@ export async function GET(
 
     const { id } = await context.params
 
-    // ── Validate id param ───────────────────────────────────────────
+    // â”€â”€ Validate id param â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const query = buildBikeQuery(id)
 
@@ -229,7 +183,7 @@ export async function GET(
       )
     }
 
-    // ── Fetch bike document ─────────────────────────────────────────
+    // â”€â”€ Fetch bike document â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /*
      * Find the bike by _id or slug.
@@ -304,7 +258,7 @@ export async function PUT(
 
     const { id } = await context.params
 
-    // ── Validate id param ───────────────────────────────────────────
+    // â”€â”€ Validate id param â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const query = buildBikeQuery(id)
 
@@ -315,7 +269,7 @@ export async function PUT(
       )
     }
 
-    // ── Parse request body ──────────────────────────────────────────
+    // â”€â”€ Parse request body â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     let body: unknown
 
@@ -335,12 +289,12 @@ export async function PUT(
       )
     }
 
-    // ── Reject immutable fields ─────────────────────────────────────
+    // â”€â”€ Reject immutable fields â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /*
      * _id and __v must never be updated directly.
      * Silently remove them from the update payload rather than
-     * returning an error — this is the most defensive approach.
+     * returning an error â€” this is the most defensive approach.
      */
     const updatePayload = { ...(body as Partial<IBikeInput>) }
     const mutablePayload: Partial<IBikeInput> = Object.fromEntries(
@@ -356,16 +310,16 @@ export async function PUT(
       )
     }
 
-    // ── Update bike document ────────────────────────────────────────
+    // â”€â”€ Update bike document â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /*
      * findOneAndUpdate with:
-     *   $set: mutablePayload — only update the provided fields
-     *   new: true — return the updated document (not the original)
-     *   runValidators: true — run Mongoose schema validators on update
-     *   context: 'query' — required for validators to work on update ops
+     *   $set: mutablePayload â€” only update the provided fields
+     *   new: true â€” return the updated document (not the original)
+     *   runValidators: true â€” run Mongoose schema validators on update
+     *   context: 'query' â€” required for validators to work on update ops
      *
-     * We do NOT use `overwrite: true` — partial updates ($set) are
+     * We do NOT use `overwrite: true` â€” partial updates ($set) are
      * safer than full document replacement to prevent accidental data loss.
      */
     const updatedBike = await Bike.findOneAndUpdate(
@@ -419,7 +373,7 @@ export async function DELETE(
 
     const { id } = await context.params
 
-    // ── Validate id param ───────────────────────────────────────────
+    // â”€â”€ Validate id param â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const query = buildBikeQuery(id)
 
@@ -430,13 +384,13 @@ export async function DELETE(
       )
     }
 
-    // ── Delete bike document ────────────────────────────────────────
+    // â”€â”€ Delete bike document â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /*
      * findOneAndDelete returns the deleted document.
      * If null is returned, the bike was not found.
      *
-     * Hard delete — no soft-delete in V1.
+     * Hard delete â€” no soft-delete in V1.
      * Admin must confirm deletion in the UI (A-06) before this fires.
      */
     const deletedBike = await Bike.findOneAndDelete(query).lean()
@@ -459,3 +413,5 @@ export async function DELETE(
     return handleMongooseError(error, 'delete')
   }
 }
+
+

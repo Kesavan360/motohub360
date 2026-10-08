@@ -207,10 +207,15 @@ export default function Bike360Viewer({
 
   /*
    * supportsFullscreen — whether the browser supports the Fullscreen API.
-   * Detected on mount. false: fullscreen button is hidden.
+   * Detected once via lazy initialiser (client-only, SSR-safe via typeof guard).
+   * false: fullscreen button is hidden.
    */
-  const [supportsFullscreen, setSupportsFullscreen] =
-    useState<boolean>(false)
+  const [supportsFullscreen] = useState<boolean>(
+    () =>
+      typeof document !== 'undefined' &&
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (document.fullscreenEnabled || (document as any).webkitFullscreenEnabled === true),
+  )
 
   // ── Refs ──────────────────────────────────────────────────────────────
 
@@ -229,29 +234,19 @@ export default function Bike360Viewer({
   // ── Effects ───────────────────────────────────────────────────────────
 
   /*
-   * Detect Fullscreen API support on mount.
-   */
-  useEffect(() => {
-    setSupportsFullscreen(
-      typeof document !== 'undefined' &&
-        (document.fullscreenEnabled ||
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (document as any).webkitFullscreenEnabled === true),
-    )
-  }, [])
-
-  /*
    * Play the video when the viewer is activated.
    * Pause/stop when deactivated.
+   *
+   * setIsLoading(true) and setHasError(false) are set in the activate()
+   * handler (the user action that triggers isActive=true), not here.
+   * This effect only calls the imperative video API and handles the
+   * resulting promise callbacks — no synchronous setState in the body.
    */
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
 
     if (isActive) {
-      setIsLoading(true)
-      setHasError(false)
-
       video.play().then(() => {
         setIsPlaying(true)
         setIsLoading(false)
@@ -268,7 +263,6 @@ export default function Bike360Viewer({
     } else {
       video.pause()
       video.currentTime = 0
-      setIsPlaying(false)
     }
   }, [isActive])
 
@@ -279,8 +273,9 @@ export default function Bike360Viewer({
    * Called on CTA button click or Space/Enter when inactive.
    */
   const activate = useCallback(() => {
-    setIsActive(true)
+    setIsLoading(true)
     setHasError(false)
+    setIsActive(true)
   }, [])
 
   /*
@@ -460,7 +455,6 @@ export default function Bike360Viewer({
           cursor: isActive ? 'default' : 'pointer',
         }}
         onClick={!isActive ? activate : undefined}
-        aria-pressed={isActive}
       >
         {/* ── Poster image (always in DOM, hidden when active) ──── */}
         {/*

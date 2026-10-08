@@ -271,7 +271,22 @@ export default function BikeFormBasic({
 
   // ── Slug uniqueness check state ───────────────────────────────────────
 
+  /*
+   * slugStatus — result of the last completed async slug check.
+   * checkedSlug — the slug value that produced slugStatus.
+   *
+   * The displayed status is derived during render:
+   *   if values.slug !== checkedSlug → show 'idle' (slug has changed
+   *   since the last check; the stored result is stale).
+   *   otherwise → show slugStatus as stored.
+   *
+   * This avoids calling setSlugStatus('idle') synchronously inside an
+   * effect, which is flagged by react-hooks/set-state-in-effect.
+   */
   const [slugStatus, setSlugStatus] = useState<SlugCheckStatus>('idle')
+  const [checkedSlug, setCheckedSlug] = useState<string>('')
+  const displayedSlugStatus: SlugCheckStatus =
+    values.slug === checkedSlug ? slugStatus : 'idle'
 
   // ── Refs ─────────────────────────────────────────────────────────────
 
@@ -280,9 +295,12 @@ export default function BikeFormBasic({
    * false: slug is auto-generated from the name.
    * true:  slug is under manual control; name changes do not affect it.
    *
-   * A ref (not state) because changing it does not need to trigger a render.
+   * The ref holds the authoritative value (avoids triggering re-renders
+   * on every keystroke). slugIsManual mirrors it for render-safe reading
+   * in JSX — the two are always kept in sync.
    */
   const slugManualRef = useRef(false)
+  const [slugIsManual, setSlugIsManual] = useState(false)
 
   /*
    * slugCheckTimerRef — handle for the debounce timer.
@@ -325,10 +343,10 @@ export default function BikeFormBasic({
          * the format error is already shown; no need for an availability
          * check that would be meaningless for an invalid format.
          */
-        setSlugStatus('idle')
         return
       }
 
+      setCheckedSlug(slug)
       setSlugStatus('checking')
       latestSlugRef.current = slug
 
@@ -350,6 +368,7 @@ export default function BikeFormBasic({
         if (latestSlugRef.current !== slug) return
       
         if (!response.ok) {
+          setCheckedSlug(slug)
           setSlugStatus('error')
           return
         }
@@ -357,6 +376,7 @@ export default function BikeFormBasic({
         const data = await response.json() as { available: boolean }
       
         if (data.available) {
+          setCheckedSlug(slug)
           setSlugStatus('available')
       
           setLocalErrors(prev => ({
@@ -364,6 +384,7 @@ export default function BikeFormBasic({
             slug: undefined,
           }))
         } else {
+          setCheckedSlug(slug)
           setSlugStatus('taken')
       
           setLocalErrors(prev => ({
@@ -378,6 +399,7 @@ export default function BikeFormBasic({
          * Only update state if this response is still relevant.
          */
         if (latestSlugRef.current === slug) {
+          setCheckedSlug(slug)
           setSlugStatus('error')
         }
       }
@@ -396,17 +418,15 @@ export default function BikeFormBasic({
    *
    * Cleanup: clears the timer when the component unmounts or slug changes.
    */
+  /*
+   * Debounce the async slug-uniqueness check.
+   * Clears any pending timer before scheduling a new one.
+   * Cleanup runs on slug change and on unmount.
+   */
   useEffect(() => {
     if (slugCheckTimerRef.current) {
       clearTimeout(slugCheckTimerRef.current)
     }
-
-    /*
-     * Reset slug status immediately when the slug changes so the
-     * "available" / "taken" indicator does not show stale information
-     * while the debounce timer is running.
-     */
-    setSlugStatus('idle')
 
     if (!values.slug) return
 
@@ -453,6 +473,7 @@ export default function BikeFormBasic({
   const handleSlugChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>): void => {
       slugManualRef.current = true
+      setSlugIsManual(true)
 
       /*
        * Sanitise on input — strip uppercase and invalid chars.
@@ -573,7 +594,7 @@ export default function BikeFormBasic({
       return null
     }
 
-    switch (slugStatus) {
+    switch (displayedSlugStatus) {
       case 'checking':
         return (
           <p
@@ -910,7 +931,7 @@ export default function BikeFormBasic({
                 maxLength={FIELD_LIMITS.SLUG_MAX}
                 className="admin-input"
                 style={{
-                  ...inputStyle(!!mergedErrors.slug || slugStatus === 'taken'),
+                  ...inputStyle(!!mergedErrors.slug || displayedSlugStatus === 'taken'),
                   /*
                    * Extra right padding so trailing icon never overlaps text.
                    */
@@ -926,7 +947,7 @@ export default function BikeFormBasic({
                 }
                 aria-required="true"
                 aria-invalid={
-                  !!mergedErrors.slug || slugStatus === 'taken'
+                  !!mergedErrors.slug || displayedSlugStatus === 'taken'
                 }
                 autoComplete="off"
                 spellCheck={false}
@@ -934,7 +955,7 @@ export default function BikeFormBasic({
 
               {/* Trailing icon: spinner / check / warning */}
               <div className="bfb-input-trailing-icon">
-                {slugStatus === 'checking' && (
+                {displayedSlugStatus === 'checking' && (
                   <span
                     aria-hidden="true"
                     className="bfb-slug-spinner"
@@ -949,7 +970,7 @@ export default function BikeFormBasic({
                   />
                 )}
 
-                {slugStatus === 'available' && !mergedErrors.slug && (
+                {displayedSlugStatus === 'available' && !mergedErrors.slug && (
                   <Icon
                     name="check"
                     size={14}
@@ -958,7 +979,7 @@ export default function BikeFormBasic({
                   />
                 )}
 
-                {(slugStatus === 'taken' || !!mergedErrors.slug) && (
+                {(displayedSlugStatus === 'taken' || !!mergedErrors.slug) && (
                   <Icon
                     name="warning"
                     size={14}
@@ -992,7 +1013,7 @@ export default function BikeFormBasic({
             {renderSlugStatusIndicator()}
 
             {/* Auto-generate hint — shown when slug is auto-generated */}
-            {!slugManualRef.current && values.name && !mergedErrors.slug && (
+            {!slugIsManual && values.name && !mergedErrors.slug && (
               <p
                 style={{
                   fontFamily: 'var(--font-body)',

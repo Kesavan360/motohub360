@@ -1,4 +1,4 @@
-/*
+﻿/*
  * GET /api/search/suggest?q=[query]
  *
  * MPD Task SR-07 (initial implementation):
@@ -15,7 +15,7 @@
  *   - connectDB() called before Mongoose operations
  *   - Bike.aggregate(buildSuggestPipeline()) replaces mock filter
  *   - mapToSearchSuggestions() converts Mongoose result to SearchSuggestion[]
- *   - Atlas Search error → fallback to regex query via buildFallbackRegexFilter()
+ *   - Atlas Search error â†’ fallback to regex query via buildFallbackRegexFilter()
  *   - Development logs include Atlas Search score for relevance debugging
  *
  * ATLAS SEARCH AVAILABILITY:
@@ -33,7 +33,7 @@
  *   Atlas Search index is configured.
  *
  * CACHING:
- *   Cache-Control: no-store — suggestions must always be fresh.
+ *   Cache-Control: no-store â€” suggestions must always be fresh.
  *   See SR-07 for full caching rationale.
  */
 
@@ -59,7 +59,7 @@ const MIN_QUERY_LENGTH = 2
 // ---------------------------------------------------------------------------
 
 /*
- * AtlasSearchAggregateResult — the shape returned by Bike.aggregate()
+ * AtlasSearchAggregateResult â€” the shape returned by Bike.aggregate()
  * with the Atlas Search pipeline from atlasSearch.ts.
  */
 interface AtlasAggregateSearchResult {
@@ -83,7 +83,7 @@ export async function GET(
     const { searchParams } = request.nextUrl
     const q = searchParams.get('q')
 
-    // ── Validate query parameter ────────────────────────────────────
+    // â”€â”€ Validate query parameter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     if (!q || typeof q !== 'string') {
       return NextResponse.json(
@@ -107,11 +107,11 @@ export async function GET(
       )
     }
 
-    // ── Connect to MongoDB ──────────────────────────────────────────
+    // â”€â”€ Connect to MongoDB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     await connectDB()
 
-    // ── Run Atlas Search aggregation ────────────────────────────────
+    // â”€â”€ Run Atlas Search aggregation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     let suggestions: SearchSuggestion[] = []
 
@@ -129,10 +129,9 @@ export async function GET(
       const results = await Bike.aggregate<AtlasAggregateSearchResult>(
         pipeline,
       )
-      console.log("Atlas Results:", results)
       if (process.env.NODE_ENV === 'development' && results.length > 0) {
         console.log(
-          `[/api/search/suggest] Atlas Search: "${sanitised}" → ${results.length} results`,
+          `[/api/search/suggest] Atlas Search: "${sanitised}" â†’ ${results.length} results`,
           results.map((r) => ({
             name: r.name,
             score: r.score?.toFixed(3),
@@ -148,9 +147,9 @@ export async function GET(
     } catch (atlasError) {
       console.error("Atlas Error:", atlasError)
       /*
-       * Atlas Search failed — likely because:
+       * Atlas Search failed â€” likely because:
        *   1. The 'bikes_search' index has not been created in Atlas UI yet
-       *   2. The index is being built (can take 1–5 minutes for first build)
+       *   2. The index is being built (can take 1â€“5 minutes for first build)
        *   3. Atlas Search is temporarily unavailable
        *
        * Fall back to a basic regex query.
@@ -180,8 +179,6 @@ export async function GET(
           .select('slug brandSlug brandName name category heroImageUrl')
           .limit(MAX_SUGGESTIONS)
           .lean<AtlasAggregateSearchResult[]>()
-        console.log("FILTER:", filter)   
-        console.log("Fallback Results:", fallbackResults)
         suggestions = mapToSearchSuggestions(fallbackResults)
 
         if (
@@ -189,14 +186,14 @@ export async function GET(
           fallbackResults.length > 0
         ) {
           console.log(
-            `[/api/search/suggest] Fallback regex: "${sanitised}" → ${fallbackResults.length} results`,
+            `[/api/search/suggest] Fallback regex: "${sanitised}" â†’ ${fallbackResults.length} results`,
           )
         }
       } catch (fallbackError) {
         /*
          * Both Atlas Search AND the fallback failed.
          * Return empty suggestions rather than an error response.
-         * The search UI shows "No results" — not a crash.
+         * The search UI shows "No results" â€” not a crash.
          */
         if (process.env.NODE_ENV === 'development') {
           console.error(
@@ -217,9 +214,9 @@ export async function GET(
     )
   } catch (error) {
     /*
-     * Top-level catch — DB connection failure or unexpected error.
+     * Top-level catch â€” DB connection failure or unexpected error.
      * Returns empty suggestions with 500 status.
-     * The search UI shows "No results" — not a crash.
+     * The search UI shows "No results" â€” not a crash.
      */
     if (process.env.NODE_ENV === 'development') {
       console.error('[/api/search/suggest] Unexpected error:', error)
@@ -234,3 +231,4 @@ export async function GET(
     )
   }
 }
+

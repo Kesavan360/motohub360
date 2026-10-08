@@ -106,10 +106,13 @@ export default function BikeMobileActionBar({
 }: BikeMobileActionBarProps) {
   /*
    * isVisible — whether the action bar is currently shown.
-   * Starts false (price block is above fold on initial load).
-   * Updated by IntersectionObserver.
+   *
+   * Starts true: the bar is visible by default. The IntersectionObserver
+   * hides it when the price block scrolls into view (isIntersecting=true).
+   * If the price block element is not found, the observer never fires and
+   * the bar stays visible — no fallback setState needed.
    */
-  const [isVisible, setIsVisible] = useState<boolean>(false)
+  const [isVisible, setIsVisible] = useState<boolean>(true)
 
   /*
    * observerRef — stores the IntersectionObserver instance.
@@ -119,28 +122,23 @@ export default function BikeMobileActionBar({
 
   // ── IntersectionObserver setup ────────────────────────────────────
 
+  /*
+   * IntersectionObserver — watches the price block.
+   *
+   * threshold: 0.1 — fire when 10% of the price block enters or
+   * exits the viewport. Prevents flickering on the exact boundary.
+   *
+   * isIntersecting: true  → price block visible → hide bar.
+   * isIntersecting: false → price block gone    → show bar.
+   *
+   * If the price block element is not found (priceBlockId not in DOM),
+   * the effect returns early and isVisible stays true — the bar is always
+   * shown, which is the correct fallback. No setState needed for this case.
+   */
   useEffect(() => {
-    /*
-     * Find the price block element by id.
-     * If not found (e.g. on a page without the price block),
-     * show the bar by default as a safe fallback.
-     */
     const priceBlock = document.getElementById(priceBlockId)
+    if (!priceBlock) return
 
-    if (!priceBlock) {
-      setIsVisible(true)
-      return
-    }
-
-    /*
-     * IntersectionObserver — watches the price block.
-     *
-     * threshold: 0.1 — fire when 10% of the price block enters or
-     * exits the viewport. Prevents flickering on the exact boundary.
-     *
-     * isIntersecting: true  → price block is visible → hide bar.
-     * isIntersecting: false → price block is gone   → show bar.
-     */
     observerRef.current = new IntersectionObserver(
       (entries) => {
         const entry = entries[0]

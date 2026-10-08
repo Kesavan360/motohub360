@@ -14,13 +14,39 @@ import BrandLogoChip from '@/components/listing/BrandLogoChip'
 import CategoryPills from '@/components/listing/CategoryPills'
 import PriceRangePills from '@/components/listing/PriceRangePills'
 import { BRANDS } from '@/constants/brands'
-import { MOCK_FEATURED_BIKES } from '@/lib/mockData'
+import type { FeaturedBike } from '@/components/bike/BikeHero'
 import type { KeyboardEvent } from 'react'
 
-export default function HomePageClient() {
-  const brandSection = useScrollReveal({ threshold: 0.05, rootMargin: '0px 0px -30px 0px' })
-  const categorySection = useScrollReveal({ threshold: 0.1, rootMargin: '0px 0px -40px 0px' })
-  const priceSection = useScrollReveal({ threshold: 0.1, rootMargin: '0px 0px -40px 0px' })
+interface HomePageClientProps {
+  featuredBikes: FeaturedBike[]
+}
+
+export default function HomePageClient({
+  featuredBikes,
+}: HomePageClientProps) {
+  const {
+  ref: brandSectionRef,
+  isVisible: isBrandVisible,
+} = useScrollReveal({
+  threshold: 0.05,
+  rootMargin: '0px 0px -30px 0px',
+})
+
+const {
+  ref: categorySectionRef,
+  isVisible: isCategoryVisible,
+} = useScrollReveal({
+  threshold: 0.1,
+  rootMargin: '0px 0px -40px 0px',
+})
+
+const {
+  ref: priceSectionRef,
+  isVisible: isPriceVisible,
+} = useScrollReveal({
+  threshold: 0.1,
+  rootMargin: '0px 0px -40px 0px',
+})
 
   const router = useRouter()
 
@@ -31,7 +57,6 @@ export default function HomePageClient() {
     isLoading,
     isFocused,
     setIsFocused,
-    clearSearch: _clearSearch,
     submitSearch,
     recentSearches,
     addRecentSearch,
@@ -195,24 +220,29 @@ export default function HomePageClient() {
           </div>
         </section>
         <section aria-label="Featured motorcycles" className="home-hero-gap">
-          <BikeHero bikes={MOCK_FEATURED_BIKES} intervalMs={5000} aspectRatio="16/7" className="home-hero-container" />
+        <BikeHero
+          bikes={featuredBikes}
+          intervalMs={5000}
+          aspectRatio="16/7"
+          className="home-hero-container"
+        />
         </section>
         <div className="home-content-pad">
-          <section ref={brandSection.ref as React.RefObject<HTMLElement>} aria-label="Browse by brand" className={`home-section-gap will-animate${brandSection.isVisible ? ' is-visible' : ''}`}>
+          <section ref={brandSectionRef} aria-label="Browse by brand" className={`home-section-gap will-animate${isBrandVisible ? ' is-visible' : ''}`}>
             <p className="home-section-label">Browse by Brand</p>
             <div className="brand-chips-track">
               {BRANDS.map((brand, index) => (
-                <div key={brand.slug} className={`will-animate${brandSection.isVisible ? ' is-visible' : ''}`} style={{ animationDelay: `${index * 60}ms`, display: 'flex', justifyContent: 'center' }}>
+                <div key={brand.slug} className={`will-animate${isBrandVisible ? ' is-visible' : ''}`} style={{ animationDelay: `${index * 60}ms`, display: 'flex', justifyContent: 'center' }}>
                   <BrandLogoChip slug={brand.slug} name={brand.name} accentColor={brand.accentColor} size={72} />
                 </div>
               ))}
             </div>
           </section>
-          <section ref={categorySection.ref as React.RefObject<HTMLElement>} aria-label="Browse by category" className={`home-section-gap will-animate${categorySection.isVisible ? ' is-visible' : ''}`}>
+          <section ref={categorySectionRef} aria-label="Browse by category" className={`home-section-gap will-animate${isCategoryVisible ? ' is-visible' : ''}`}>
             <p className="home-section-label">Browse by Category</p>
             <div className="pill-tap-target home-pills-scroll"><CategoryPills scrollable={true} /></div>
           </section>
-          <section ref={priceSection.ref as React.RefObject<HTMLElement>} aria-label="Browse by price" className={`home-section-gap will-animate${priceSection.isVisible ? ' is-visible' : ''}`}>
+          <section ref={priceSectionRef} aria-label="Browse by price" className={`home-section-gap will-animate${isPriceVisible ? ' is-visible' : ''}`}>
             <p className="home-section-label">Browse by Price</p>
             <div className="pill-tap-target home-pills-scroll home-price-section"><PriceRangePills scrollable={true} /></div>
           </section>

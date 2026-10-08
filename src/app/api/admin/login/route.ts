@@ -114,6 +114,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       email: sanitisedEmail,
     }).select('+passwordHash')
 
+
+    console.log('[LOGIN DEBUG] Admin found:', !!admin)
+
+
     /*
      * Use a generic error message for both "not found" and "wrong password"
      * to prevent email enumeration attacks.
@@ -141,6 +145,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
      * Returns false (never throws) on mismatch.
      */
     const isPasswordValid = await admin.verifyPassword(password)
+
+    console.log('[LOGIN DEBUG] Password valid:', isPasswordValid)
 
     if (!isPasswordValid) {
       return NextResponse.json(

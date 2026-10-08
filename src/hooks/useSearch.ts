@@ -123,23 +123,18 @@ export function useSearch(
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [isFocused, setIsFocusedState] = useState<boolean>(false)
-  const [recentSearches, setRecentSearches] = useState<string[]>([])
+  /*
+   * Lazy initialiser reads localStorage once on first render (client-only).
+   * loadRecentSearches() is SSR-safe (returns [] when window is undefined).
+   * No mount effect needed.
+   */
+  const [recentSearches, setRecentSearches] = useState<string[]>(loadRecentSearches)
 
   // ── Refs ──────────────────────────────────────────────────────────────
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Effects ───────────────────────────────────────────────────────────
-
-  /*
-   * Hydrate recentSearches from localStorage on mount.
-   */
-  useEffect(() => {
-    const stored = loadRecentSearches()
-    if (stored.length > 0) {
-      setRecentSearches(stored)
-    }
-  }, [])
 
   /*
    * Cleanup debounce timer on unmount.
@@ -160,8 +155,9 @@ export function useSearch(
    *
    * Flow:
    *   1. debouncedQuery updates (after 150ms debounce)
-   *   2. If length < minQueryLength: clear suggestions + isLoading=false
-   *   3. If length >= minQueryLength: fetch /api/search/suggest?q=[query]
+   *   2. debouncedQuery is always empty or >= minQueryLength here
+   *      (setQuery sets debouncedQuery='' when value is too short)
+   *   3. fetch /api/search/suggest?q=[query]
    *   4. On success: setSuggestions(data.suggestions), isLoading=false
    *   5. On error/abort: setSuggestions([]), isLoading=false
    *
@@ -170,20 +166,20 @@ export function useSearch(
    *   The cleanup function aborts any in-flight request from the
    *   previous effect run before the new one starts.
    *   This prevents stale responses from overwriting newer results.
+   *
+   * All setState calls happen inside fetchSuggestions (an async function),
+   * not in the synchronous effect body, satisfying the React Compiler's
+   * set-state-in-effect rule.
    */
   useEffect(() => {
-    if (debouncedQuery.length < minQueryLength) {
-      setSuggestions([])
-      setIsLoading(false)
-      return
-    }
+    if (!debouncedQuery || debouncedQuery.length < minQueryLength) return
 
     const controller = new AbortController()
     const { signal } = controller
 
-    setIsLoading(true)
-
     const fetchSuggestions = async (): Promise<void> => {
+      setIsLoading(true)
+
       try {
         const url = `/api/search/suggest?q=${encodeURIComponent(debouncedQuery)}`
         const response = await fetch(url, { signal })
